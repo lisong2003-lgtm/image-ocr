@@ -26,7 +26,7 @@ python3 -m pip install Pillow
 brew install poppler
 ```
 
-语言模型（chi_sim / eng，约 7.6 MB）已随本完整包提供，运行时不联网下载。
+语言模型（chi_sim / eng，约 7.6 MB，tesseract.js 官方 best_int 文件）已随本完整包提供，运行时不联网下载。
 
 > 版本差异：GitHub 完整包内置模型；SkillHub 版受平台二进制限制不含 `assets/tessdata/`，需按其 README 一次性 `curl` 下载，功能完全一致。
 
@@ -85,13 +85,13 @@ image-ocr/
 │   ├── ocr_image.js      CLI 主程序（tesseract.js 7）
 │   ├── ocr_image.sh      启动器（自动定位 node/python，过滤进度噪声）
 │   └── preprocess.py     预处理（灰度/对比度/放大/纠偏/Otsu）
-└── assets/tessdata/      chi_sim + eng 离线模型
+└── assets/tessdata/      chi_sim + eng 离线模型（tesseract.js 4.0.0_best_int）
 ```
 
 ## 许可与隐私
 
 - 代码与文档：CC BY-NC-SA 4.0，见 `LICENSE.md`。
-- 语言模型：Apache License 2.0，第三方文件，见 `NOTICE.md`。
+- 语言模型：第三方文件（tesseract.js `4.0.0_best_int`，来源与许可见 `NOTICE.md`）。
 - 全程本地运行，不产生任何网络请求（依赖安装除外）。
 
 ## 反馈

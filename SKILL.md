@@ -2,7 +2,7 @@
 name: image-ocr
 slug: image-ocr
 displayName: 图片文字识别 / Image OCR
-version: 0.1.0
+version: 0.1.1
 author: lis
 license: CC-BY-NC-SA-4.0
 description: Read text, numbers, and math expressions from image files using local OCR (chi_sim/eng), fully offline. Use whenever the user attaches an image or a scanned/multi-page PDF and asks what it says, wants content extracted, needs a worksheet or questions read from a photo, or wants image text converted to editable text. Accepts several images or PDFs in one call. Also use to preprocess low-quality images before OCR. Provides text extraction only, not scene understanding.
@@ -57,4 +57,4 @@ PDFs render at 200 DPI via pdftoppm (all pages); without pdftoppm, `sips` falls 
 - `scripts/ocr_image.js` — OCR command line tool
 - `scripts/ocr_image.sh` — launcher (auto-detects node/python, filters progress noise)
 - `scripts/preprocess.py` — preprocessing (grayscale, autocontrast, conditional upscale, deskew, Otsu)
-- `assets/tessdata/` — chi_sim and eng traineddata models (offline copies, Apache-2.0, see NOTICE.md)
+- `assets/tessdata/` — chi_sim and eng traineddata models (tesseract.js `4.0.0_best_int` copies; provenance and licenses in NOTICE.md)

@@ -1,6 +1,6 @@
 {
   "name": "image-ocr",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "本地离线 OCR：从图片与扫描 PDF 提取中文、英文、数字和算式文本。",
   "author": "lis",
   "license": "CC-BY-NC-SA-4.0",

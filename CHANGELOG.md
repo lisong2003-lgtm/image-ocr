@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1 — 2026-08-30
+
+- 纠正语言模型来源声明：包内模型是 tesseract.js 官方 `@tesseract.js-data` 的 `4.0.0_best_int` 文件（SHA-256 已核对，见 `NOTICE.md`），不是 tessdata_fast，许可以前为 Apache-2.0 的说法有误。
+- SkillHub 首次安装下载模型改用与测试完全一致的文件地址（jsDelivr + gunzip），并给出可校验的字节数。
+
 ## 0.1.0 — 2026-08-30
 
 首次公开发布。
