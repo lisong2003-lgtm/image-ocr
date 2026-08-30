@@ -1,0 +1,14 @@
+{
+  "name": "image-ocr",
+  "version": "0.1.0",
+  "description": "本地离线 OCR：从图片与扫描 PDF 提取中文、英文、数字和算式文本。",
+  "author": "lis",
+  "license": "CC-BY-NC-SA-4.0",
+  "entry": "SKILL.md",
+  "scripts": [
+    "scripts/ocr_image.js",
+    "scripts/ocr_image.sh",
+    "scripts/preprocess.py"
+  ],
+  "privacy": "Runs entirely offline; image bytes are never uploaded. Bundled language models are Apache-2.0 Tesseract traineddata (see NOTICE.md)."
+}

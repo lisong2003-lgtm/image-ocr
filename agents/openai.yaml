@@ -1,0 +1,4 @@
+interface:
+  display_name: "图片文字识别"
+  short_description: "从图片/PDF扫描件批量提取中文、英文、数字和算式文本，用于读取题目、截图和文档内容"
+  default_prompt: "请读取这张图片里的文字和数字，并告诉我内容"
