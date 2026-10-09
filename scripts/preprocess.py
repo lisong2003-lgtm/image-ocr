@@ -1,4 +1,4 @@
-"""OCR 预处理: 灰度+autocontrast; 小图(<=800px)自动2x放大; --deskew(±5°) --binarize(Otsu) --upscale(强制放大)"""
+"""OCR 预处理: 灰度+autocontrast; 小图(<=800px)自动2x放大; --deskew(+-5deg) --binarize(Otsu) --upscale(强制放大) --rotate(90/180/270)"""
 import sys
 from PIL import Image, ImageOps
 
@@ -51,10 +51,19 @@ def deskew(g):
 
 
 src, out = sys.argv[1], sys.argv[2]
-flags = set(sys.argv[3:])
-im = Image.open(src).convert('L')
+flags = sys.argv[3:]
+im = Image.open(src)
+im = ImageOps.exif_transpose(im)
+im = im.convert('L')
 if '--deskew' in flags:
     im = deskew(im)
+if '--rotate' in flags:
+    try:
+        deg = int(flags[flags.index('--rotate') + 1]) % 360
+        if deg:
+            im = im.rotate(deg, expand=True, fillcolor=255, resample=Image.BILINEAR)
+    except Exception as e:
+        print("rotate error: %s" % e, file=sys.stderr)
 im = ImageOps.autocontrast(im, cutoff=2)
 # 放大对已经清晰的截图是伤害(实测精度下降), 只在字很可能太小时做
 if '--upscale' in flags or max(im.size) <= 800:
