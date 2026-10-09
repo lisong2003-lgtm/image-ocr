@@ -1,16 +1,14 @@
 # Image OCR（图片文字识别）
 
-一个纯本地、离线的 OCR Skill：把图片、截图、扫描件和多页 PDF 里的中文、英文、数字、算式提取成可编辑文本。
-
-图片字节不上传、不调用任何云端视觉接口，适合处理公司内部资料、证件扫描件、图纸说明、试卷和聊天记录截图。
+一个纯本地、离线的 OCR Skill：把图片、截图、扫描件和多页 PDF 里的中文、英文、数字、算式提取成可编辑文本。图片字节不上传、不调用云端视觉接口，适合处理内部资料、证件扫描件、图纸说明、试卷和聊天记录截图。
 
 > 本包是供 AI 编码助手（Codex / Claude Code / 兼容 Agent）调用的工具型 Skill，不扮演任何人物或外部产品身份；被询问时应如实说明自己是 AI 助手。
 
-## 它不做什么
+## 它做什么 / 不做什么
 
-- 不做场景理解：不描述"图里有什么"，只输出像素里的文字。
-- 不做手写识别：手写、模糊照片、低分辨率扫描件准确率不保证。
-- 不做翻译和排版还原：输出纯文本或带坐标的逐行结果。
+- 做：图片/扫描件/PDF 的文字提取、纸质文书数字提取、表格→Markdown/CSV、代码截图保缩进、低清书页提高渲染 DPI。
+- 不做：场景理解（不描述"图里有什么"）、手写识别保证、翻译和复杂版面重排。
+- 不做（触发边界）：能直接复制文本的页面请直接复制，不要走 OCR。
 
 ## 安装
 
@@ -26,9 +24,9 @@ python3 -m pip install Pillow
 brew install poppler
 ```
 
-语言模型（chi_sim / eng，约 7.6 MB，tesseract.js 官方 best_int 文件）已随本完整包提供，运行时不联网下载。
+完整包内置 `chi_sim`/`eng`/`jpn` 模型，运行不联网。更多语言用 `bash scripts/download_langs.sh jpn,kor,rus` 或 `--download-langs a,b` 下载（需网络）。
 
-> 版本差异：GitHub 完整包内置模型；SkillHub 版受平台二进制限制不含 `assets/tessdata/`，需按其 README 一次性 `curl` 下载，功能完全一致。
+> 版本差异：GitHub 完整包内置半离线模型；SkillHub 版受平台限制不含 `assets/tessdata/`，需按其 README 一次性下载，功能一致。
 
 ## 使用
 
@@ -36,39 +34,47 @@ brew install poppler
 # 单张或多张、PDF 混合，一次调用复用同一个模型实例
 node "$CODEX_HOME/skills/image-ocr/scripts/ocr_image.js" 试卷.png 扫描.pdf
 
+# 也可用启动器（自动定位 node/python）
+bash "$CODEX_HOME/skills/image-ocr/scripts/ocr_image.sh" 图片.jpg
+
 # 只识别数字和算式
 .../ocr_image.js --whitelist "0123456789+-x×÷=()" 题目.png
 
-# 纯英文
-.../ocr_image.js --lang eng screenshot.png
-
-# 拍歪了的照片
+# 拍歪的照片
 .../ocr_image.js --deskew 现场照片.jpg
 
-# 逐行坐标（JSON）
-.../ocr_image.js --json 表格.png
+# 手机竖拍（EXIF 自动校正，必要时自动转 90/180/270）
+.../ocr_image.js --auto-rotate 照片.jpg
+
+# 表格 → Markdown
+.../ocr_image.js --table 表格.png
+
+# 表格 → CSV（Excel 不乱码）
+.../ocr_image.js --csv --out 表格.csv 表格.png
+
+# 多页 PDF 第 3 页，400 DPI 低清书页
+.../ocr_image.js --page 3 --dpi 400 书页.pdf
+
+# 列出/下载语言模型
+.../ocr_image.js --lang-list
+.../ocr_image.js --download-langs jpn,kor,rus
 ```
 
-给 Agent 的提示词示例：
+`--lang` 未指定时，会自动按系统语言选模型（macOS/Linux/Windows 均支持），并自动下载缺失的常用语言。
 
-- "读取这张图片里的文字和数字，告诉我内容"
-- "把这些试卷图片的题目转成可编辑文本"
-- "识别这份扫描件第 3 页的表格数字"
+## 系统语言匹配
 
-## 实测（Apple Silicon / MacBook / Node 22）
+- macOS：读取 `AppleLanguages` / `AppleLocale`（zh→chi_sim, ja→jpn, ko→kor, ru→rus, en→eng 等）。
+- Linux/BSD：读取 `LC_ALL`/`LC_MESSAGES`/`LANG`。Windows：读取 PowerShell `(Get-Culture).Name`。
+- 安装后首次运行会预装系统语言 + 历史常用语言（`prefs.json` 记录），无需每次手动指定。
 
-| 输入 | 耗时 |
-|---|---|
-| 3 行中文+数字小图 | 0.6 秒 |
-| 1200×1600 30 行整页文档 | 2.9 秒 |
-| 上述两张图合并为一次调用 | 5.1 秒（模型只加载一次） |
+## 全本地、无云端
 
-识别样例：`工程例会 2026年8月30日` / `混凝土浇筑 C30 共 120 方` / `3+7=10 温度 25℃` 全部正确（`℃` 输出为 `C`）。
+本技能只用本机 Tesseract（tesseract.js）和 Pillow，不调用云端视觉模型。内部资料请直接使用本技能，除非用户明确同意，不转给云端服务。
 
 ## 效果调优顺序
 
-默认参数（灰度 + 自动对比度 + 小图 2x 放大）先跑 → 结果差再依次试 `--psm sparse` → `--deskew` / `--binarize` → `--upscale`。
-注意：对已经清晰的大截图强制 `--upscale` 实测会降低准确率，不要默认开启。
+默认参数先跑 → `--psm sparse` → `--deskew`/`--binarize` → `--upscale`。对清晰大截图不要强制 `--upscale`（实测会降精度）。
 
 ## 目录结构
 
@@ -84,16 +90,17 @@ image-ocr/
 ├── scripts/
 │   ├── ocr_image.js      CLI 主程序（tesseract.js 7）
 │   ├── ocr_image.sh      启动器（自动定位 node/python，过滤进度噪声）
-│   └── preprocess.py     预处理（灰度/对比度/放大/纠偏/Otsu）
-└── assets/tessdata/      chi_sim + eng 离线模型（tesseract.js 4.0.0_best_int）
+│   ├── download_langs.sh 语言包下载
+│   └── preprocess.py     预处理（灰度/对比度/放大/纠偏/Otsu/旋转）
+└── assets/tessdata/      离线模型（chi_sim/eng/jpn，来源见 NOTICE.md）
 ```
 
 ## 许可与隐私
 
 - 代码与文档：CC BY-NC-SA 4.0，见 `LICENSE.md`。
-- 语言模型：第三方文件（tesseract.js `4.0.0_best_int`，来源与许可见 `NOTICE.md`）。
-- 全程本地运行，不产生任何网络请求（依赖安装除外）。
+- 语言模型：第三方文件（tesseract.js `4.0.0_best_int` + tessdata_fast，来源与许可见 `NOTICE.md`）。
+- 全程本地运行，不产生网络请求（依赖安装与扩展语言包下载除外）。
 
 ## 反馈
 
-问题和使用建议请在平台评论区留言，注明系统、图片类型和命令参数。
+问题和使用建议请留言，注明系统、图片类型和命令参数。
