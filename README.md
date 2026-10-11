@@ -1,5 +1,8 @@
 # Image OCR（图片文字识别）
 
+> 📦 **SkillHub 安装**：`skillhub install image-ocr`　|　仓库：[lisong2003-lgtm/image-ocr](https://github.com/lisong2003-lgtm/image-ocr)
+
+
 一个纯本地、离线的 OCR Skill：把图片、截图、扫描件和多页 PDF 里的中文、英文、数字、算式提取成可编辑文本。图片字节不上传、不调用云端视觉接口，适合处理内部资料、证件扫描件、图纸说明、试卷和聊天记录截图。
 
 > 本包是供 AI 编码助手（Codex / Claude Code / 兼容 Agent）调用的工具型 Skill，不扮演任何人物或外部产品身份；被询问时应如实说明自己是 AI 助手。
