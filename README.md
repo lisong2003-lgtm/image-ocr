@@ -7,6 +7,16 @@
 
 > 本包是供 AI 编码助手（Codex / Claude Code / 兼容 Agent）调用的工具型 Skill，不扮演任何人物或外部产品身份；被询问时应如实说明自己是 AI 助手。
 
+## 0.3.1 新增能力
+
+- 环境体检与版本：`--doctor`、`--version`、`--quiet`；macOS/Linux 用 `scripts/setup.sh`，Windows 用 `scripts/setup.ps1`，均可 `--repair` 一键补装。
+- 区域识别：`--crop x,y,w,h` 只识别指定区域，`--crop-preview` 可保存裁剪预览图。
+- 批量与恢复：`--workers N` 多文件并行，`--progress` 显示进度，`--resume` 断点续跑。
+- 缓存控制：`--cache-ttl 秒`、`--no-cache`、`--clear-cache`。
+- 表格增强：`--table-gap N` 调整列切分，`--table-conf` 输出每格置信度。
+- 结构化字段：`--fields date,amount,id` 只抽取实际读到的字段，读不到留空，不补全。
+- 输入与跨平台：HEIC 自动转 PNG；语言模型下载改为纯 Node；Windows/Linux/macOS 均有启动器和安装脚本。
+
 ## 它做什么 / 不做什么
 
 - 做：图片/扫描件/PDF 的文字提取、纸质文书数字提取、表格→Markdown/CSV、代码截图保缩进、低清书页提高渲染 DPI。
@@ -30,6 +40,12 @@ brew install poppler
 完整包内置 `chi_sim`/`eng`/`jpn` 模型，运行不联网。更多语言用 `bash scripts/download_langs.sh jpn,kor,rus` 或 `--download-langs a,b` 下载（需网络）。
 
 > 版本差异：GitHub 完整包内置半离线模型；SkillHub 版受平台限制不含 `assets/tessdata/`，需按其 README 一次性下载，功能一致。
+
+## 跨平台启动
+
+- macOS/Linux：`bash scripts/ocr_image.sh 文件.png`；依赖体检：`bash scripts/setup.sh`。
+- Windows PowerShell：`powershell -File scripts/ocr_image.ps1 文件.png`；依赖体检：`powershell -File scripts/setup.ps1`。
+- Windows CMD：直接运行 `scripts\ocr_image.cmd 文件.png`。
 
 ## 使用
 
@@ -85,16 +101,20 @@ bash "$CODEX_HOME/skills/image-ocr/scripts/ocr_image.sh" 图片.jpg
 image-ocr/
 ├── SKILL.md              Agent 调用说明
 ├── README.md             本文件
+├── BENCHMARK.md          三张脱敏样张的真实实测结果
 ├── CHANGELOG.md
 ├── LICENSE.md            CC BY-NC-SA 4.0（代码与文档）
 ├── NOTICE.md             语言模型第三方声明
 ├── manifest.json
 ├── agents/openai.yaml    界面元数据
+├── examples/             脱敏样张与预期文本
 ├── scripts/
 │   ├── ocr_image.js      CLI 主程序（tesseract.js 7）
-│   ├── ocr_image.sh      启动器（自动定位 node/python，过滤进度噪声）
+│   ├── ocr_image.sh/.ps1/.cmd  启动器（自动定位 node/python，过滤进度噪声）
 │   ├── download_langs.sh 语言包下载
-│   └── preprocess.py     预处理（灰度/对比度/放大/纠偏/Otsu/旋转）
+│   ├── preprocess.py     预处理（灰度/对比度/放大/纠偏/Otsu/旋转/裁剪）
+│   ├── setup.sh/.ps1     依赖体检与一键修复
+│   └── self_test.sh      版本/doctor/用法回归
 └── assets/tessdata/      离线模型（chi_sim/eng/jpn，来源见 NOTICE.md）
 ```
 

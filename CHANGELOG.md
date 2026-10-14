@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.1 — 2026-10-14
+
+- 新增 `--doctor` 环境体检与微型自检识别，`--version`、`--quiet`；新增 `scripts/setup.sh` / `scripts/setup.ps1` 依赖体检与 `--repair` 一键补装。
+- 新增区域识别：`--crop x,y,w,h`、`--crop-preview`；裁剪先于其他预处理执行。
+- 新增批量与恢复：`--workers N` 多文件并行（仅文本模式）、`--progress`、`--resume` 断点续跑。
+- 新增缓存管理：`--cache-ttl`、`--no-cache`、`--clear-cache`。
+- 新增表格增强：`--table-gap` 调整列切分、`--table-conf` 输出每格置信度；复杂合并单元格继续要求人工核对。
+- 新增结构化字段抽取：`--fields date,amount,id`，只抽取实际读到的字段，读不到留空，不补全。
+- 新增 HEIC 输入自动转 PNG（macOS 优先 sips，其他平台用 ImageMagick/heif-convert），缺失时给中文提示。
+- 跨平台增强：Windows 启动器 `ocr_image.ps1` / `ocr_image.cmd` / `setup.ps1`；语言模型下载改为纯 Node，不依赖 bash/curl；Linux/macOS 继续使用 `ocr_image` / `setup.sh`。
+- PDF 渲染优先 `pdftoppm`，缺失时 macOS sips / 其他系统 ImageMagick 兜底第 1 页。
+- 新增 `examples/` 三张脱敏样张和 `BENCHMARK.md` 真实实测结果；新增 `self_test.sh` 回归（版本、doctor、用法）。
+
 ## 0.2.0 — 2026-10-09
 
 - 目标定位扩展为通用图片/文书 OCR：不限于建筑图纸，可识别中文、英文、日文、韩文、俄文、阿拉伯文、希伯来文字，图片/PDF/书页照片均可。

@@ -1,4 +1,4 @@
-"""OCR 预处理: 灰度+autocontrast; 小图(<=800px)自动2x放大; --deskew(+-5deg) --binarize(Otsu) --upscale(强制放大) --rotate(90/180/270)"""
+"""OCR 预处理: 灰度+autocontrast; 小图(<=800px)自动2x放大; --deskew(+-5deg) --binarize(Otsu) --upscale(强制放大) --rotate(90/180/270) --crop x,y,w,h"""
 import sys
 from PIL import Image, ImageOps
 
@@ -55,6 +55,17 @@ flags = sys.argv[3:]
 im = Image.open(src)
 im = ImageOps.exif_transpose(im)
 im = im.convert('L')
+if '--crop' in flags:
+    try:
+        x, y, w, h = (max(0, int(v)) for v in flags[flags.index('--crop') + 1].split(','))
+        x2 = min(im.width, x + w)
+        y2 = min(im.height, y + h)
+        if x2 > x and y2 > y:
+            im = im.crop((x, y, x2, y2))
+        else:
+            print('crop error: 裁剪区域超出图像范围，已忽略', file=sys.stderr)
+    except Exception as e:
+        print('crop error: %s' % e, file=sys.stderr)
 if '--deskew' in flags:
     im = deskew(im)
 if '--rotate' in flags:

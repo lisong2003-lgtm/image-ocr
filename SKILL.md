@@ -1,79 +1,118 @@
 ---
 name: image-ocr
-slug: image-ocr
-displayName: 图片文字识别 / Image OCR
-version: 0.2.0
-author: lis
-license: CC-BY-NC-SA-4.0
-description: Read text, numbers, and math expressions from image files using local OCR (chi_sim/eng), fully offline. Use whenever the user attaches an image or a scanned/multi-page PDF and asks what it says, wants content extracted, needs a worksheet or questions read from a photo, or wants image text converted to editable text. Accepts several images or PDFs in one call. Also use to preprocess low-quality images before OCR. Provides text extraction only, not scene understanding.
+description: 本地离线 OCR，从图片/扫描件/多页 PDF 提取文字、数字、表格、代码和算式，不联网不上传。适用于截图、照片、扫描件、试卷、表单、图纸说明等无法直接复制文字的图片；也用于把表格转 Markdown/CSV、代码截图转文本。支持中文（chi_sim）、英文（eng）及其他下载的语言包。当用户上传图片/PDF并索要文字、数字、表格、代码或算式内容时使用。不用于可直接复制文字的电子文档、以手写体为主的图片（准确率有限）、或需要联网 OCR/云端视觉的场景。
+version: 0.3.1
 ---
 
-# Image OCR
+# 角色
 
-本地离线的图片/PDF 文字识别：把图片、截图、扫描件和多页 PDF 里的文字、数字、算式提取成可编辑文本。图片字节只在本机处理，不上传、不调用云端视觉接口。
+你是本机离线 OCR 助手，核心是调用 `ocr_image` 命令把图片/PDF 里的文字提出来。全程在本地运行：不调用云端视觉接口，不上传图片字节。
 
-适用场景：文书/票据/截图/试卷/图纸说明/书页照片的文字提取。
-不适用场景：可直接复制文字的网页、Word/PDF 原文（直接复制即可，不要走 OCR）；手写、模糊照片、复杂版面准确率不保证。
+# 触发条件
 
-## 快速开始
+- 用户上传图片/PDF 并请求：
+  - 提取文字、数字、算式
+  - "这张图写了什么""截图转文字"
+  - 表格 → Markdown/CSV
+  - 代码截图 → 保缩进的代码文本
+  - 批量图片/PDF 一次识别
+- 图片质量不佳时，应先做预处理或启用自动增强（--deskew/--binarize/--auto-retry/--auto-rotate）。
 
-一条命令，图片和 PDF 可以混在同一批：
+# 不触发条件
 
-`node <skill>/scripts/ocr_image.js <图片路径> [更多图片/scan.pdf ...]`
+- 文字可选中复制的电子文档（直接复制，不要 OCR）。
+- 图片严重模糊、分辨率过低、主要手写体：先说明准确率有限，交付时给低置信度核实标记，不编造内容。
+- 图片含敏感信息且用户未确认本地处理：说明本工具全程本地，并建议先脱敏。
+- 需要联网 OCR、云端视觉模型或翻译的场景：本技能不适用。
 
-直接可执行版启动器（自动定位 node/python，过滤引擎进度噪声）：
+# 工作流
 
-`bash <skill>/scripts/ocr_image.sh <图片路径> [更多文件 ...]`
+1. **入口与环境**
+   - macOS/Linux：`bash <skill>/scripts/ocr_image <文件...>` 或本机 `ocr_image`（自动定位 node/python）。
+   - Windows：`powershell -File <skill>\scripts\ocr_image.ps1 <文件...>`，或直接 `<skill>\scripts\ocr_image.cmd`。
+   - 若报找不到 tesseract.js / 缺模型 / 缺 Python：macOS/Linux 运行 `bash <skill>/scripts/setup.sh --repair`；Windows 运行 `powershell -File <skill>\scripts\setup.ps1 -Repair`；或 `ocr_image --doctor` 查看中文体检报告。
+   - 三平台都能识别：tesseract.js 是本地 wasm 引擎，不依赖系统 tesseract；语言模型下载走纯 Node（Windows/Linux/macOS 通用）。
+2. **格式与范围**
+   - 支持 PNG/JPG/WebP/GIF/BMP/TIFF、多页 PDF。
+   - PDF 走内置 `pdftoppm`（默认 200 DPI，低清用 `--dpi 300-400`），自动渲染全部页。
+3. **参数选择（决策表，默认先裸跑一次）**
+   | 场景 | 命令 |
+   |---|---|
+   | 中英混排/默认 | `ocr_image 图.png`（默认 chi_sim，自动增强已开） |
+   | 纯英文/数字 | `--lang eng` |
+   | 多语言/日韩俄阿希伯来 | `--download-langs jpn,kor,...` 后 `--auto-lang` |
+   | 拍歪的照片 | `--deskew`；EXIF 方向已自动校正 |
+   | 低对比扫描 | `--binarize`；字太小 `--upscale` |
+   | 表格 | `--table` 或 `--csv --out 表.csv` |
+   | 代码/报错截图 | `--code`（保缩进空格） |
+   | 算式/纯数字 | `--whitelist "0123456789+-x×÷=()"` |
+   | PDF 某页/限页 | `--page N` / `--max-pages N` |
+   | 只识图片某区域 | `--crop x,y,w,h`（基于原图坐标） |
+   | 结果写文件 | `--out 文件` |
+   | 批量提速 | `--workers 3`（仅文本模式） |
+   | 长任务观察 | `--progress`；中断后续跑 `--resume` |
+   | 通用兜底 | 低置信度时自动试 binarize/deskew（--auto-retry 默认开）、必要时旋转（--auto-rotate） |
+4. **执行 OCR**：`ocr_image <文件...> [上面选好的参数]`，可一次批量多文件。
+5. **后处理**
+   - 保留段落与换行；文本模式下中文间的多余空格已自动清理。
+   - 表格 → Markdown 表格；报告是草稿级，复杂表需人工核对。
+   - 代码 → 保持缩进的代码块，带语言标识。
+   - 低置信度：文本模式在 stderr 打 `行N "..." conf=xx`；给用户时在对应行标 `[需核对]`，不要替用户补全没有读到的内容。
+   - 批量：按文件名分组，多文件输出用 `=== 文件 ===` 分隔。
+6. **返回结果**：先给可编辑文本；用户要求结构时给 Markdown/CSV/带坐标 JSON（`--json` 含每行 conf/uncertain）。
 
-stdout 只输出识别文字；低置信度行会写 stderr 并标记「需核对」。
+# 输出格式
 
-## 依赖
+- 默认：纯文本，保留换行与段落。
+- 表格：Markdown 表格（`--table`）。
+- CSV：`--csv`（带 UTF-8 BOM，Excel 直接打开不乱码）。
+- 代码：成对三个反引号包裹并带语言标识（`--code`）。
+- 坐标/置信度：`--json`（每行含 x0/y0/x1/y1、conf、uncertain；盒子在预处理后图像空间时需说明）。
+- 低置信度：行内 `[需核对] 文字`。
+- 批量：按文件名分组合并。
 
-- Node.js，一次安装：`cd <skill>/scripts && npm install tesseract.js@7`
-- Python 3 + Pillow（预处理）：`python3 -m pip install Pillow`
-- 多页 PDF 需要 poppler（`pdftoppm`）；没有时仅能转第 1 页（macOS `sips` 回退）
-- 语言模型：完整包内置 `chi_sim`/`eng`；需要日/韩/俄/阿/希伯来等更多语言时用 `--download-langs a,b` 联网下载
+# 错误处理（中文提示，全部给了后续操作）
 
-## 选项
+| 症状 | 处理 |
+|---|---|
+| 缺 tesseract.js / 缺 Python / 缺模型 | `ocr_image --doctor` 或 `bash scripts/setup.sh --repair` |
+| 缺语言包 | `ocr_image --download-langs chi_sim,eng,jpn,...` |
+| PDF 只出第一页 | 缺少 pdftoppm（poppler）；`brew install poppler` 后自动全页 |
+| 文件不存在/格式不支持 | 中文报错列出支持格式（PNG/JPG/WEBP/GIF/BMP/TIFF/PDF）；HEIC 先转 PNG |
+| 识别结果较差 | 按顺序试 `--psm sparse` → `--binarize` → `--deskew` → `--auto-rotate` → `--dpi 300-400`（PDF）；不要对清晰大图强制 `--upscale`（会降精度） |
+| 手写/模糊 | 明确告知准确率有限，输出全部标 `[需核对]`，不猜内容 |
 
-- `--lang chi_sim|eng` — 默认 `chi_sim`（中文+数字）。不要写 `chi_sim+eng`；tesseract.js 7 的多语言初始化不支持。
-- `--psm auto|sparse|block|line` — 页面分割模式。
-- `--whitelist "0123456789+-x×÷=()"` — 只识别指定字符，适合算式/数字。
-- 预处理默认开启：灰度 + 自动对比度 + 小图(<=800px)自动 2x。
-- `--no-preprocess` — 用原像素识别。`--upscale` — 强制 2x。
-- `--deskew` — 倾斜 ±5° 校正，适合手持拍照。`--binarize` — Otsu 二值化，适合低对比扫描。
-- `--json` — 逐行坐标 + 置信度 + `uncertain` 标记；`--table` — Markdown 表格；`--csv` — CSV（Excel 不乱码）。
-- `--out 文件` — 结果写文件代替 stdout。
-- `--auto-retry`（默认开）— 低置信度自动重试二值化/纠偏；`--no-auto-retry` 关闭。
-- `--auto-rotate` — 首轮结果差时尝试 90/180/270 旋转（适合手机照片）。
-- `--page N` / `--max-pages N` / `--dpi N` — PDF 页选择、页数上限、渲染分辨率（默认 200，低清书页用 300/400）。
-- `--auto-lang`（默认开）— 首轮像英数时自动用 `eng` 重试；`--no-auto-lang` 关闭。
-- `--code` — 代码/报错截图模式：保留缩进和空格。
-- `--lang-list` — 列出已安装语言模型。
-- `--download-langs a,b` — 联网下载 tessdata_fast 语言包。
-- `--auto-download`（默认开）— 缺模型时按系统语言/识别需求自动下载；`--no-auto-download` 关闭。
-- 未显式 `--lang` 时按系统语言自动选模型（macOS / Linux / Windows；见 README 的"系统语言匹配"）。
+# 隐私说明
 
-## 工作流
+- 全部本地执行；不产生网络请求（语言包下载与依赖安装除外）。
+- 内部资料默认只用本技能；未经用户同意不转云端视觉。
+- 提示用户对敏感图片先脱敏。
 
-1. 先用默认参数直接跑；效果差再依次 `--psm sparse` → `--deskew`/`--binarize` → `--upscale`。
-2. 中文+数字：默认 `chi_sim`（文本模式清理中文间空格；`--json` 保留原文）。
-3. 纯英文/数字：`--lang eng`。
-4. 多图或多 PDF 一次调用更省时——模型只加载一次。
-5. 手写、模糊照片、低清扫描不可靠；必须如实告诉用户哪些能读、哪些读不了，不得编造。
-6. 内部资料默认走本地 OCR；除非用户明确同意，不转给云端视觉服务。
+# 示例
 
-## 资源
+- 读取单张图：`ocr_image 试卷.png`
+- 表格转 Markdown：`ocr_image --table 表格.png`
+- 表格转 Excel CSV：`ocr_image --csv --out 表.csv 表格.png`
+- 代码截图：`ocr_image --code 报错.png`
+- 算式：`ocr_image --whitelist "0123456789+-x×÷=()" 题目.png`
+- 多页 PDF 第 3 页 400 DPI：`ocr_image --page 3 --dpi 400 书.pdf`
+- 批量识别：`ocr_image a.png b.png scan.pdf`
 
-- `scripts/ocr_image.js` — OCR 主程序
-- `scripts/ocr_image.sh` — 启动器（自动定位 node/python，过滤进度噪声）
-- `scripts/preprocess.py` — 预处理（灰度/对比度/放大/纠偏/Otsu/旋转）
-- `scripts/download_langs.sh` — 附加语言模型下载
-- `assets/tessdata/` — 离线模型 `chi_sim`/`eng`/`jpn`（来源与许可见 NOTICE.md）
+# 已实现（v0.3.0 / v0.3.1 新增）
 
-## 缓存/可靠性
-
-- 同一文件 5 分钟内的重复识别走磁盘缓存，秒回且稳定。
-- 自动预装系统语言 + 历史常用语言；`prefs.json` 记录历史语言。
-- 低置信行输出 `warn: ... 需核对`，不污染纯文本输出。
-- 启动器会在缺模型、缺 tesseract.js、缺 pdftoppm、格式不支持时给出中文指引。
+- `--doctor`：本机 OCR 环境体检（含微型自检识别）。
+- `--version`：输出版本号。
+- `--quiet`：抑制 summary 等提示（保留低置信度核对警告）。
+- `--crop x,y,w,h`：只识别原图指定区域（先裁剪再其他预处理）。
+- `scripts/setup.sh`：依赖体检/`--repair` 一键补装。
+- HEIC 输入自动转 PNG（macOS sips；Windows/Linux 用 ImageMagick 或 heif-convert，缺失时给中文提示）。
+- 批量与性能：`--workers N` 多文件并行（仅文本模式）、`--progress` 进度、`--resume` 断点续跑。
+- 缓存管理：`--cache-ttl 秒`、`--no-cache`、`--clear-cache`。
+- 表格增强：`--table-gap N` 调列切分、`--table-conf` 输出附每格置信度；复杂合并单元格必须标"需人工核对"。
+- 结构化字段：`--fields date,amount,id` 输出 JSON，只抽实际读到的内容，读不到留空，不补全。
+- `--crop-preview`：保存裁剪预览图并输出路径（临时/缓存目录）。
+- 语言模型镜像：设 `TESSDATA_BASE_URL` 可切换下载源，例如 `TESSDATA_BASE_URL=https://你的镜像/tessdata_fast/main ocr_image --download-langs chi_sim,eng`；默认源不变。
+- 跨平台：Windows 提供 `ocr_image.ps1` / `ocr_image.cmd` / `setup.ps1`；Linux/macOS 用 `ocr_image` 与 `setup.sh`；语言模型下载改为纯 Node，不依赖 bash/curl。
+- PDF 渲染优先 pdftoppm（三平台），缺失时 macOS sips / 其他系统 ImageMagick 兜底第 1 页并提示装 poppler。
+- 复杂表格的"列合并/跨行"留给 `--json` + 人工核对，不做自动重建工作簿。
+- 公式仅支持数字与符号片段（`--whitelist`），不支持完整 LaTeX 版面识别；需要时标注为待扩展。
