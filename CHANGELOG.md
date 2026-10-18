@@ -1,45 +1,23 @@
-# Changelog
+# CHANGELOG
 
-## 0.3.1 — 2026-10-14
+## v0.3.3 (2026-10-18)
+- 自检升级：`scripts/self_test.sh` 扩展为 3 项回归 + 8 项边界样例（更难手写体、严重模糊、低分辨率、印章压字、竖排/异体字、复杂合并表格 ×2），全部通过才写通过记录；通过日志规范路径 `/tmp/image_ocr_selftest_0.3.3.log`。
+- v0.3.2 仅有 2 项边界样例；v0.3.3 新增 6 张更难边界样例与 expected：`example-handwriting-hard`、`example-blur-heavy`、`example-lowres`、`example-stamp-overlap`、`example-vertical-cn`、`example-merged-table-complex`。
+- 边界行为增强：低置信/整体读不到时，标准输出必须带【需人工核对】+ 证据（行号/conf/裁剪区域），不把草稿结论当成功；空结果与整体低置信也会触发需人工核对，不再静默返回空文本。
+- 补齐 `README.md` 与 `CHANGELOG.md`；`BENCHMARK.md` 同步 8 项边界说明。
+- 发布合规：SkillHub 轻量包不含 `.traineddata` 二进制（模型一次性下载，见 README 双包说明），GitHub 完整包含模型二进制；本机原版保持完整。
 
-- 新增 `--doctor` 环境体检与微型自检识别，`--version`、`--quiet`；新增 `scripts/setup.sh` / `scripts/setup.ps1` 依赖体检与 `--repair` 一键补装。
-- 新增区域识别：`--crop x,y,w,h`、`--crop-preview`；裁剪先于其他预处理执行。
-- 新增批量与恢复：`--workers N` 多文件并行（仅文本模式）、`--progress`、`--resume` 断点续跑。
-- 新增缓存管理：`--cache-ttl`、`--no-cache`、`--clear-cache`。
-- 新增表格增强：`--table-gap` 调整列切分、`--table-conf` 输出每格置信度；复杂合并单元格继续要求人工核对。
-- 新增结构化字段抽取：`--fields date,amount,id`，只抽取实际读到的字段，读不到留空，不补全。
-- 新增 HEIC 输入自动转 PNG（macOS 优先 sips，其他平台用 ImageMagick/heif-convert），缺失时给中文提示。
-- 跨平台增强：Windows 启动器 `ocr_image.ps1` / `ocr_image.cmd` / `setup.ps1`；语言模型下载改为纯 Node，不依赖 bash/curl；Linux/macOS 继续使用 `ocr_image` / `setup.sh`。
-- PDF 渲染优先 `pdftoppm`，缺失时 macOS sips / 其他系统 ImageMagick 兜底第 1 页。
-- 新增 `examples/` 三张脱敏样张和 `BENCHMARK.md` 真实实测结果；新增 `self_test.sh` 回归（版本、doctor、用法）。
+## v0.3.2 (2026-10-18，已先行发布的最小边界版)
+- 新增 `examples/example-handwriting.png`、`examples/example-merged-table.png` 两个边界样例与 expected：手写体/复杂合并表格一律标【需人工核对】，不假装识别成功；`scripts/self_test.sh` 为 3 项回归 + 2 项边界样例。（本机继续演进为 v0.3.3 的 8 项边界。）
 
-## 0.2.0 — 2026-10-09
+## v0.3.1 (2026-10-14)
+- 结构化抽取 `--fields date,amount,id`（只抽实际读到内容，读不到留空，不补全）。
+- `--crop-preview` 保存裁剪预览并输出路径。
+- 复杂表格列合并/跨行留给 `--json` + 人工核对，不做自动重建工作簿。
+- 语言模型下载镜像 `TESSDATA_BASE_URL` 可切换；下载改为纯 Node。
+- 帮助文本与错误处理补充中文后续操作；`--quiet` 保留低置信告警。
 
-- 目标定位扩展为通用图片/文书 OCR：不限于建筑图纸，可识别中文、英文、日文、韩文、俄文、阿拉伯文、希伯来文字，图片/PDF/书页照片均可。
-- 新增多语言能力：字符集自动检测（日/韩/俄/阿/希伯来/英）、`--lang-list`、`--download-langs a,b` 联网下载 `tessdata_fast` 模型、`--auto-download` 默认开启按需自动补装语言包。
-- 新增系统语言自动匹配（macOS / Linux / Windows）：未显式指定 `--lang` 时按系统语言选模型，并预装历史常用语言。
-- 新增结构化输出：`--table`（Markdown 表格）、`--csv`（UTF-8 BOM，Excel 直接打开不乱码）、`--out 文件`。
-- 新增可靠性：5 分钟磁盘缓存、低置信度行 `uncertain`/`需核对` 标记、`--auto-retry` 自动重试、EXIF 方向自动校正、`--auto-rotate`。
-- 新增 PDF/书页增强：`--page N`、`--max-pages N`、`--dpi N`（默认 200，低清书页可用 300/400），多页 PDF 按页码数值排序（修复第10页排到第2页前的旧问题）。
-- 新增 `--code` 代码/报错截图模式（保留缩进、空格，中文注释间距不破坏）。
-- 新增 `scripts/download_langs.sh` 语言包下载器（带失败清理)。
-- 完整包附带 `jpn` 模型；`NOTICE.md` 更新来源声明。
-- 内部资料默认仅走本地 OCR，文档明确不回传云端视觉服务。
-
-## 0.1.1 — 2026-08-30
-
-- 纠正语言模型来源声明：包内模型是 tesseract.js 官方 `@tesseract.js-data` 的 `4.0.0_best_int` 文件（SHA-256 已核对，见 `NOTICE.md`），不是 tessdata_fast，许可以前为 Apache-2.0 的说法有误。
-- SkillHub 首次安装下载模型改用与测试完全一致的文件地址（jsDelivr + gunzip），并给出可校验的字节数。
-
-## 0.1.0 — 2026-08-30
-
-首次公开发布。
-
-- 本地离线 OCR 命令行：图片、多图片、多页 PDF 一次调用，模型只加载一次。
-- 语言：`chi_sim`（中英混排+数字）、`eng`；模型随包，不联网下载。
-- 预处理：灰度 + 自动对比度；小图（<=800px）自动 2x；可选 `--deskew`（±5° 纠偏）、`--binarize`（Otsu）、`--upscale`（强制放大）。
-- 选项：`--psm auto|sparse|block|line`、`--whitelist` 字符白名单（算式/数字专用）、`--json` 逐行坐标。
-- 中文之间多余空格在文本模式下自动清理。
-- PDF：优先 `pdftoppm` 200 DPI 全页；无 poppler 时 `sips` 只处理第 1 页并给出提示。
-- 启动器 `scripts/ocr_image.sh` 自动定位 node/python，并过滤 tesseract wasm 进度噪声。
-- 实测：3 行小图 0.6 秒；1200×1600 30 行整页 2.9 秒。
+## v0.3.0 (2026-08-30)
+- 首版：本地 tesseract.js wasm OCR，支持 PNG/JPG/WebP/GIF/BMP/TIFF/PDF（pdftoppm），中英/多语言。
+- `--doctor`、`--version`、`--crop`、`--deskew`、`--binarize`、`--auto-retry`、`--auto-rotate`、`--table`/`--csv`/`--code`/`--json`、批量 `--workers/--progress/--resume`、缓存管理。
+- 手写/复杂合并/低对比边界开始标注需人工核对，不自动补全。

@@ -1,129 +1,55 @@
-# Image OCR（图片文字识别）
+# image-ocr
 
-> 📦 **SkillHub 安装**：`skillhub install image-ocr`　|　仓库：[lisong2003-lgtm/image-ocr](https://github.com/lisong2003-lgtm/image-ocr)
+本地离线 OCR 技能（v0.3.3）。把图片/扫描件/多页 PDF 中的文字、数字、表格、代码、算式提取为文本，全程在本机运行，不上传图片字节。
 
+## 依赖与环境
+- 需要 Node.js 18+（或 Codex 运行时缓存）与 Python 3.8+（预处理用 Pillow）。
+- macOS/Linux：`bash <skill>/scripts/setup.sh --repair`；Windows：`powershell -File <skill>\scripts\setup.ps1 -Repair`。
+- 多页 PDF 需要 poppler `pdftoppm`（macOS：`brew install poppler`）。
+- 语言模型：默认中文 chi_sim + 英文 eng。缺包时 `scripts/ocr_image --download-langs chi_sim,eng,...`。
 
-一个纯本地、离线的 OCR Skill：把图片、截图、扫描件和多页 PDF 里的中文、英文、数字、算式提取成可编辑文本。图片字节不上传、不调用云端视觉接口，适合处理内部资料、证件扫描件、图纸说明、试卷和聊天记录截图。
-
-> 本包是供 AI 编码助手（Codex / Claude Code / 兼容 Agent）调用的工具型 Skill，不扮演任何人物或外部产品身份；被询问时应如实说明自己是 AI 助手。
-
-## 0.3.1 新增能力
-
-- 环境体检与版本：`--doctor`、`--version`、`--quiet`；macOS/Linux 用 `scripts/setup.sh`，Windows 用 `scripts/setup.ps1`，均可 `--repair` 一键补装。
-- 区域识别：`--crop x,y,w,h` 只识别指定区域，`--crop-preview` 可保存裁剪预览图。
-- 批量与恢复：`--workers N` 多文件并行，`--progress` 显示进度，`--resume` 断点续跑。
-- 缓存控制：`--cache-ttl 秒`、`--no-cache`、`--clear-cache`。
-- 表格增强：`--table-gap N` 调整列切分，`--table-conf` 输出每格置信度。
-- 结构化字段：`--fields date,amount,id` 只抽取实际读到的字段，读不到留空，不补全。
-- 输入与跨平台：HEIC 自动转 PNG；语言模型下载改为纯 Node；Windows/Linux/macOS 均有启动器和安装脚本。
-
-## 它做什么 / 不做什么
-
-- 做：图片/扫描件/PDF 的文字提取、纸质文书数字提取、表格→Markdown/CSV、代码截图保缩进、低清书页提高渲染 DPI。
-- 不做：场景理解（不描述"图里有什么"）、手写识别保证、翻译和复杂版面重排。
-- 不做（触发边界）：能直接复制文本的页面请直接复制，不要走 OCR。
-
-## 安装
-
+## 用法
 ```bash
-# 1. 放到技能目录（Codex 默认技能根目录）
-cp -R image-ocr "$CODEX_HOME/skills/"
-
-# 2. 装依赖（一次性）
-cd "$CODEX_HOME/skills/image-ocr/scripts" && npm install tesseract.js@7
-python3 -m pip install Pillow
-
-# 3. 多页 PDF 需要 poppler（可选，缺失时只识别第 1 页）
-brew install poppler
+scripts/ocr_image 图片.png                          # 默认 chi_sim，自动增强
+scripts/ocr_image --lang eng 截图.png               # 纯英文/数字
+scripts/ocr_image --table 表.png                    # Markdown 表格（草稿级）
+scripts/ocr_image --csv --out 表.csv 表.png         # UTF-8 BOM CSV
+scripts/ocr_image --code 报错.png                   # 代码截图
+scripts/ocr_image --crop x,y,w,h 图.png             # 只识别区域
+scripts/ocr_image --json 图.png                     # 带坐标与每行置信度
+scripts/ocr_image --fields date,amount,id 图.png    # 结构化字段（不补全）
+scripts/ocr_image 多页.pdf --page 3 --dpi 400       # PDF 指定页
+scripts/ocr_image a.png b.png --workers 3           # 并行批量（仅文本）
 ```
 
-完整包内置 `chi_sim`/`eng`/`jpn` 模型，运行不联网。更多语言用 `bash scripts/download_langs.sh jpn,kor,rus` 或 `--download-langs a,b` 下载（需网络）。
+常用参数：`--deskew --binarize --auto-rotate --auto-retry --quiet --out 文件 --progress --resume`。完整参数见 `scripts/ocr_image --help`。
 
-> 版本差异：GitHub 完整包内置半离线模型；SkillHub 版受平台限制不含 `assets/tessdata/`，需按其 README 一次性下载，功能一致。
-
-## 跨平台启动
-
-- macOS/Linux：`bash scripts/ocr_image.sh 文件.png`；依赖体检：`bash scripts/setup.sh`。
-- Windows PowerShell：`powershell -File scripts/ocr_image.ps1 文件.png`；依赖体检：`powershell -File scripts/setup.ps1`。
-- Windows CMD：直接运行 `scripts\ocr_image.cmd 文件.png`。
-
-## 使用
-
+## 自检
 ```bash
-# 单张或多张、PDF 混合，一次调用复用同一个模型实例
-node "$CODEX_HOME/skills/image-ocr/scripts/ocr_image.js" 试卷.png 扫描.pdf
-
-# 也可用启动器（自动定位 node/python）
-bash "$CODEX_HOME/skills/image-ocr/scripts/ocr_image.sh" 图片.jpg
-
-# 只识别数字和算式
-.../ocr_image.js --whitelist "0123456789+-x×÷=()" 题目.png
-
-# 拍歪的照片
-.../ocr_image.js --deskew 现场照片.jpg
-
-# 手机竖拍（EXIF 自动校正，必要时自动转 90/180/270）
-.../ocr_image.js --auto-rotate 照片.jpg
-
-# 表格 → Markdown
-.../ocr_image.js --table 表格.png
-
-# 表格 → CSV（Excel 不乱码）
-.../ocr_image.js --csv --out 表格.csv 表格.png
-
-# 多页 PDF 第 3 页，400 DPI 低清书页
-.../ocr_image.js --page 3 --dpi 400 书页.pdf
-
-# 列出/下载语言模型
-.../ocr_image.js --lang-list
-.../ocr_image.js --download-langs jpn,kor,rus
+bash scripts/self_test.sh
+```
+3 项回归 + 8 项边界样例（手写体、更难手写体、严重模糊、低分辨率、印章压字、竖排/异体字、复杂合并表格 ×2），全部 PASS 才写通过记录。通过后可归档：
+```bash
+bash scripts/self_test.sh > /tmp/image_ocr_selftest_0.3.3.log
 ```
 
-`--lang` 未指定时，会自动按系统语言选模型（macOS/Linux/Windows 均支持），并自动下载缺失的常用语言。
+## 边界与降级（不承诺准确）
+- 手写体、严重模糊、低分辨率、印章压字、竖排/异体字：准确率有限，低置信时输出【需人工核对】+ 行号/conf/裁剪区域证据，不自动补全。
+- 复杂合并表格：工具只按行/列间距扁平行切分，不能自动复原合并语义；需要原结构用 `--json` + 人工核对。
+- 完整 LaTeX 公式版面不在支持范围。
+- 降级路径：截图裁剪 → 重试（`--binarize/--deskew/--auto-rotate`）→ 提高 DPI → 表格专项 → 人工核对。
 
-## 系统语言匹配
+## 隐私与合规
+- 全程本地；不把图片字节发往云端。需下载语言包/依赖时才联网。
+- 示例图片全部为脚本自造，不含任何公司、客户或个人身份信息。
 
-- macOS：读取 `AppleLanguages` / `AppleLocale`（zh→chi_sim, ja→jpn, ko→kor, ru→rus, en→eng 等）。
-- Linux/BSD：读取 `LC_ALL`/`LC_MESSAGES`/`LANG`。Windows：读取 PowerShell `(Get-Culture).Name`。
-- 安装后首次运行会预装系统语言 + 历史常用语言（`prefs.json` 记录），无需每次手动指定。
+## 双包说明（发布）
+- **GitHub 完整包**（`image-ocr-full-0.3.3.zip`）：含本机全部文件与 `assets/tessdata/*.traineddata` 二进制模型，功能与本地一致。
+- **SkillHub 轻量包**（`image-ocr-skillhub-0.3.3.zip`）：平台不收二进制/无扩展名脚本，故不含 `.traineddata`；下载后先执行：
+  ```bash
+  bash scripts/download_langs.sh chi_sim,eng
+  ```
+  其余功能与完整包一致。平台专用调整只进发布包，不回写本机原版。
 
-## 全本地、无云端
-
-本技能只用本机 Tesseract（tesseract.js）和 Pillow，不调用云端视觉模型。内部资料请直接使用本技能，除非用户明确同意，不转给云端服务。
-
-## 效果调优顺序
-
-默认参数先跑 → `--psm sparse` → `--deskew`/`--binarize` → `--upscale`。对清晰大截图不要强制 `--upscale`（实测会降精度）。
-
-## 目录结构
-
-```
-image-ocr/
-├── SKILL.md              Agent 调用说明
-├── README.md             本文件
-├── BENCHMARK.md          三张脱敏样张的真实实测结果
-├── CHANGELOG.md
-├── LICENSE.md            CC BY-NC-SA 4.0（代码与文档）
-├── NOTICE.md             语言模型第三方声明
-├── manifest.json
-├── agents/openai.yaml    界面元数据
-├── examples/             脱敏样张与预期文本
-├── scripts/
-│   ├── ocr_image.js      CLI 主程序（tesseract.js 7）
-│   ├── ocr_image.sh/.ps1/.cmd  启动器（自动定位 node/python，过滤进度噪声）
-│   ├── download_langs.sh 语言包下载
-│   ├── preprocess.py     预处理（灰度/对比度/放大/纠偏/Otsu/旋转/裁剪）
-│   ├── setup.sh/.ps1     依赖体检与一键修复
-│   └── self_test.sh      版本/doctor/用法回归
-└── assets/tessdata/      离线模型（chi_sim/eng/jpn，来源见 NOTICE.md）
-```
-
-## 许可与隐私
-
-- 代码与文档：CC BY-NC-SA 4.0，见 `LICENSE.md`。
-- 语言模型：第三方文件（tesseract.js `4.0.0_best_int` + tessdata_fast，来源与许可见 `NOTICE.md`）。
-- 全程本地运行，不产生网络请求（依赖安装与扩展语言包下载除外）。
-
-## 反馈
-
-问题和使用建议请留言，注明系统、图片类型和命令参数。
+## 许可证
+第三方组件（tesseract.js、tessdata 语言包、poppler 等）各自遵守其开源许可；完整来源与哈希见 `NOTICE.md`。

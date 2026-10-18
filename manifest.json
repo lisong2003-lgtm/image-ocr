@@ -1,7 +1,7 @@
 {
   "name": "image-ocr",
-  "version": "0.3.1",
-  "description": "本地离线 OCR：从图片/扫描件/多页 PDF 提取文字、数字、表格、代码和算式；支持中文/英文/多语言、Markdown/CSV、区域裁剪、批量并行、断点续跑和低置信度标注。",
+  "version": "0.3.3",
+  "description": "本地离线 OCR：从图片/扫描件/多页 PDF 提取文字、数字、表格、代码和算式；支持中文/英文/多语言、Markdown/CSV、区域裁剪、批量并行、断点续跑和低置信度标注（手写/模糊/印章/竖排/复杂合并表格需人工核对）。",
   "author": "lis",
   "license": "CC-BY-NC-SA-4.0",
   "entry": "SKILL.md",

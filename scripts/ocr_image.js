@@ -660,7 +660,7 @@ async function main() {
   const opts = parseArgs(process.argv.slice(2));
   AUTO_DOWNLOAD = opts.autoDownload;
   const t0 = Date.now();
-  if (opts.version) { console.log('image-ocr 0.3.1'); process.exit(0); }
+  if (opts.version) { console.log('image-ocr 0.3.3'); process.exit(0); }
   if (opts.doctor) { process.exit(await doctor()); }
   if (opts.clearCache) {
     const n = clearCacheDir();
@@ -867,31 +867,44 @@ async function main() {
   for (const r of results) {
     const lines = r.lines;
     const low = lines.filter((l) => l.uncertain);
+    const cropNote = opts.crop ? `；裁剪区域 ${opts.crop}` : '';
+    let detail = '';
     if (low.length) {
-      const details = low.slice(0, 3).map((l, i) => {
+      const details = low.slice(0, 3).map((l) => {
         const idx = lines.indexOf(l) + 1;
         return `行${idx} "${String(l.text).slice(0, 30)}" conf=${Math.round(l.conf)}`;
       }).join('；');
-      warnings.push(`${r.item.label}: ${low.length} 行置信度<${LOW_CONF}（${details}）`);
+      detail = `${low.length} 行置信度<${LOW_CONF}（${details}${cropNote}）`;
+      warnings.push(`${r.item.label}: ${detail}，需人工核对`);
+    } else if (r.poor) {
+      detail = `未读到足够文字/整体置信度偏低${cropNote}`;
+      warnings.push(`${r.item.label}: ${detail}，需人工核对`);
     }
+    const manual = low.length > 0 || r.poor;
+    const manualNote = manual ? `【需人工核对】${r.item.label}：${detail}。请与原始图片人工比对，勿当最终结果。\n` : '';
     if (opts.fields) {
       const rawTextF = opts.code ? r.data.text : cleanCjk(r.data.text);
-      outStr += JSON.stringify({ image: r.item.label, fields: extractFields(rawTextF, lines, opts.fields) }) + '\n';
+      const out = { image: r.item.label, fields: extractFields(rawTextF, lines, opts.fields) };
+      if (manual) { out.needs_review = true; out.review_note = detail; }
+      outStr += JSON.stringify(out) + '\n';
       continue;
     }
     if (opts.table || opts.csv) {
       if (multi) outStr += `=== ${r.item.label} ===\n`;
+      if (manual && !opts.csv) outStr += `> ${manualNote.replace(/\n$/, '')}\n\n`;
       outStr += buildTable([r], opts.csv ? 'csv' : 'md', opts.tableGap, opts.tableConf) + '\n';
       continue;
     }
     if (opts.json) {
       const converted = { image: r.item.label, lines: lines };
+      if (manual) { converted.needs_review = true; converted.review_note = detail; }
       outStr += (multi ? JSON.stringify(converted) : '') ;
       if (multi) outStr += '\n';
       if (!multi) outStr += JSON.stringify(lines, null, 2);
       continue;
     }
     if (multi || opts.alwaysLabel) outStr += `=== ${r.item.label} ===\n`;
+    if (manual) outStr += manualNote;
     const rawText = opts.code ? r.data.text : cleanCjk(r.data.text);
     outStr += rawText.replace(/\n{3,}/g, '\n\n').trim() + '\n';
   }
