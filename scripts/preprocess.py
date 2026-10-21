@@ -1,6 +1,39 @@
 """OCR 预处理: 灰度+autocontrast; 小图(<=800px)自动2x放大; --deskew(+-5deg) --binarize(Otsu) --upscale(强制放大) --rotate(90/180/270) --crop x,y,w,h"""
+
+try:
+    import os as _boot_os, sys as _boot_sys
+    _boot_sys.path.insert(0, _boot_os.path.dirname(_boot_os.path.abspath(__file__)))
+    import pyboot as _boot_pyboot
+    _boot_pyboot.ensure_utf8_io()
+except Exception:
+    pass
+
 import sys
 from PIL import Image, ImageOps
+
+
+def _preprocess_cli_help(argv):
+    """海外适配轻量层：--lang en|zh 帮助文本；不影响原有 src/out 位置参数。"""
+    _lang = "en" if ("--lang" in argv and argv[argv.index("--lang") + 1] == "en") else "zh"
+    if "--help" in argv or "-h" in argv:
+        if _lang == "en":
+            print("usage: preprocess.py <input-image> <output-image> [--lang en|zh] [--deskew] [--binarize] [--upscale] [--rotate DEG] [--crop X,Y,W,H]")
+        else:
+            print("用法: preprocess.py <输入图> <输出图> [--lang en|zh] [--deskew] [--binarize] [--upscale] [--rotate 角度] [--crop X,Y,W,H]")
+        return True
+    return False
+
+
+_arg_help = _preprocess_cli_help(sys.argv[1:])
+if _arg_help:
+    sys.exit(0)
+if "--lang" in sys.argv[1:]:
+    _i = sys.argv.index("--lang")
+    if _i + 1 < len(sys.argv):
+        sys.argv.pop(_i + 1)
+    sys.argv.pop(_i)
+
+
 
 
 def otsu_threshold(g):

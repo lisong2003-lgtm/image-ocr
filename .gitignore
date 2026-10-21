@@ -1,4 +1,9 @@
+__pycache__/
+*.pyc
+*.pyo
 .DS_Store
-scripts/node_modules/
-scripts/package-lock.json
-dist/
+*.tmp
+*.swp
+Thumbs.db
+eng.traineddata
+work/

@@ -60,11 +60,59 @@ function findBinary(name) {
   return null;
 }
 
-function usage() {
+function usage(lang) {
+  const en = lang === 'en';
+  if (en) {
+    console.log(`usage:
+  ocr_image <image-or-pdf> [more files...] [options]
+
+options:
+  --ui-lang en|zh     UI language for help/summary (default zh; does NOT change OCR language)
+  --lang chi_sim|eng  OCR language (default chi_sim)
+  --psm auto|sparse|block|line  page segmentation mode (default auto)
+  --whitelist "chars" only recognize these chars
+  --no-preprocess     disable preprocessing (grayscale+contrast; small images auto-upscale 2x)
+  --upscale           force 2x upscale
+  --deskew            skew correction ±5°
+  --binarize          Otsu binarization
+  --json              per-line JSON with coordinates (conf/uncertain)
+  --table             Markdown table by column clustering
+  --csv               CSV table (for Excel)
+  --out FILE          write output to file instead of stdout
+  --auto-retry        auto retry binarize/deskew on low confidence (default on)
+  --no-auto-retry     disable auto retry
+  --auto-rotate       try 90/180/270 rotation when result is poor
+  --page N            OCR only page N of PDF
+  --max-pages N       OCR at most first N pages
+  --dpi N             PDF render DPI (default 200)
+  --auto-lang         auto detect language (default on)
+  --no-auto-lang      disable auto language switch
+  --code              code/screenshot mode
+  --lang-list         list installed language models
+  --download-langs a,b  download language models (network)
+  --auto-download     auto download language packs (default on)
+  --no-auto-download  disable auto download
+  --crop x,y,w,h      OCR only this region
+  --doctor            local OCR environment doctor
+  --version           print version and exit
+  --quiet             suppress summary output
+  --workers N         parallel files (default 1, text mode only)
+  --progress          progress on stderr
+  --cache-ttl SEC     cache TTL (default 300)
+  --no-cache          do not read/write cache
+  --clear-cache       clear cache and exit
+  --resume            read cache ignoring expiry
+  --table-gap N       table column split threshold (px)
+  --table-conf        include per-cell confidence in table
+  --fields a,b        extract fields (date,amount,id) as JSON
+  --crop-preview      save crop preview image`);
+    return;
+  }
   console.log(`用法:
   ocr_image <图片或PDF路径> [更多文件...] [选项]
 
 选项:
+  --ui-lang en|zh     UI 语言（默认 zh；不影响 --lang 的 OCR 语言）
   --lang chi_sim|eng   识别语言（默认 chi_sim，不要写 chi_sim+eng）
   --psm auto|sparse|block|line  页面分割模式（默认 auto）
   --whitelist "字符"   只识别指定字符，例如 "0123456789+-x×÷=()"
@@ -107,10 +155,11 @@ function usage() {
 }
 
 function parseArgs(argv) {
-  const opts = { _: [], lang: 'chi_sim', psm: 'auto', whitelist: null, preprocess: true, deskew: false, binarize: false, upscale: false, json: false, table: false, csv: false, out: null, autoRetry: true, autoRotate: false, page: null, maxPages: null, dpi: 200, autoLang: true, code: false, langList: false, downloadLangs: null, autoDownload: true, langExplicit: false, crop: null, doctor: false, version: false, quiet: false, workers: 1, cacheTtl: null, noCache: false, clearCache: false, resume: false, progress: false, tableGap: null, tableConf: false, fields: null, cropPreview: false, alwaysLabel: false };
+  const opts = { _: [], uiLang: 'zh', lang: 'chi_sim', psm: 'auto', whitelist: null, preprocess: true, deskew: false, binarize: false, upscale: false, json: false, table: false, csv: false, out: null, autoRetry: true, autoRotate: false, page: null, maxPages: null, dpi: 200, autoLang: true, code: false, langList: false, downloadLangs: null, autoDownload: true, langExplicit: false, crop: null, doctor: false, version: false, quiet: false, workers: 1, cacheTtl: null, noCache: false, clearCache: false, resume: false, progress: false, tableGap: null, tableConf: false, fields: null, cropPreview: false, alwaysLabel: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--lang') { opts.lang = argv[++i]; opts.langExplicit = true; }
+    if (a === '--ui-lang') { opts.uiLang = ['en','en-US'].includes(argv[++i] || 'zh') ? 'en' : 'zh'; }
+    else if (a === '--lang') { opts.lang = argv[++i]; opts.langExplicit = true; }
     else if (a === '--psm') opts.psm = argv[++i];
     else if (a === '--whitelist') opts.whitelist = argv[++i];
     else if (a === '--preprocess') opts.preprocess = true;
@@ -150,7 +199,7 @@ function parseArgs(argv) {
     else if (a === '--fields') opts.fields = String(argv[++i] || '').split(',').map((x) => x.trim()).filter(Boolean);
     else if (a === '--crop-preview') opts.cropPreview = true;
     else if (a === '--_always-label') opts.alwaysLabel = true;
-    else if (a.startsWith('-')) { usage(); process.exit(1); }
+    else if (a.startsWith('-')) { usage(opts.uiLang); process.exit(1); }
     else opts._.push(a);
   }
   if (opts.deskew || opts.binarize || opts.upscale) opts.preprocess = true;
@@ -652,7 +701,7 @@ async function doctor() {
   report[report.length - 1] = `${okSelf ? '✅' : '❌'} 微型自检识别→UTF8:${JSON.stringify(selfText.slice(0, 40))}`;
   report.forEach((l) => console.log(l));
   const allOk = okTess && okPillow && okSelf;
-  console.log(allOk ? 'doctor: 全部通过 ✅（可正常识别）' : 'doctor: 存在缺项 ❌（按上面提示修复后重试）');
+  console.log(opts.uiLang === 'en' ? (allOk ? 'doctor: all checks passed ✅' : 'doctor: issues found ❌ (fix per hints above then retry)') : (allOk ? 'doctor: 全部通过 ✅（可正常识别）' : 'doctor: 存在缺项 ❌（按上面提示修复后重试）'));
   return allOk ? 0 : 1;
 }
 
@@ -660,7 +709,7 @@ async function main() {
   const opts = parseArgs(process.argv.slice(2));
   AUTO_DOWNLOAD = opts.autoDownload;
   const t0 = Date.now();
-  if (opts.version) { console.log('image-ocr 0.3.3'); process.exit(0); }
+  if (opts.version) { console.log(opts.uiLang === 'en' ? 'image-ocr 0.3.3' : 'image-ocr 0.3.3'); process.exit(0); }
   if (opts.doctor) { process.exit(await doctor()); }
   if (opts.clearCache) {
     const n = clearCacheDir();
@@ -710,7 +759,7 @@ async function main() {
     console.error('DONE');
     process.exit(bad);
   }
-  if (!opts._.length) { usage(); process.exit(1); }
+  if (!opts._.length) { usage(opts.uiLang); process.exit(1); }
 
   // 联网可用时：预装系统语言 + 历史常用语言
   ensureSystemAndUsedLangs();
@@ -740,7 +789,7 @@ async function main() {
     if (cache.out) {
       if (opts.out) {
         fs.writeFileSync(opts.out, cache.out);
-        process.stdout.write(`OCR 结果已写入: ${opts.out}\n`);
+        process.stdout.write(opts.uiLang === 'en' ? `OCR result written to: ${opts.out}\n` : `OCR 结果已写入: ${opts.out}\n`);
       } else {
         process.stdout.write(cache.out);
       }
@@ -919,10 +968,10 @@ async function main() {
   if (!opts.noCache) writeCache(cacheKey(opts._, opts), { out: outStr, warnings });
   if (warnings.length) console.error('warn: ' + warnings.join('；'));
   const totalMs = ((Date.now() - t0) / 1000).toFixed(2);
-  if (!opts.quiet) console.error(`summary: ${items.length} 张，需核对 ${warnings.length} 份，耗时 ${totalMs}s`);
+  if (!opts.quiet) console.error(opts.uiLang === 'en' ? `summary: ${items.length} file(s), review ${warnings.length}, ${totalMs}s` : `summary: ${items.length} 张，需核对 ${warnings.length} 份，耗时 ${totalMs}s`);
   if (opts.out) {
     fs.writeFileSync(opts.out, outStr);
-    process.stdout.write(`OCR 结果已写入: ${opts.out}\n`);
+    process.stdout.write(opts.uiLang === 'en' ? `OCR result written to: ${opts.out}\n` : `OCR 结果已写入: ${opts.out}\n`);
   } else {
     process.stdout.write(outStr);
   }
