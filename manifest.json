@@ -1,9 +1,11 @@
 {
   "name": "image-ocr",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "entry": "SKILL.md",
   "scripts": [
     "scripts/download_langs.sh",
+    "scripts/generate_examples.py",
+    "scripts/i18n.py",
     "scripts/lint_cross_platform.py",
     "scripts/ocr_image",
     "scripts/ocr_image.cmd",
@@ -13,7 +15,6 @@
     "scripts/preprocess.py",
     "scripts/preprocess.sh",
     "scripts/pyboot.py",
-    "scripts/i18n.py",
     "scripts/self_test.py",
     "scripts/self_test.sh",
     "scripts/setup.ps1",
@@ -21,7 +22,6 @@
     "scripts/smoke_utf8_json.py"
   ],
   "references": [
-    ".gitignore",
     "BENCHMARK.md",
     "CHANGELOG.md",
     "README.md",
@@ -36,5 +36,6 @@
     "macos",
     "windows",
     "linux"
-  ]
+  ],
+  "assets": []
 }

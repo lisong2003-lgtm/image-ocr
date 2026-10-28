@@ -1,6 +1,18 @@
 # Changelog
 
 
+## 0.3.6 (2026-10-28)
+
+- 恢复文档承诺的入口：`scripts/ocr_image.txt` 改回 `scripts/ocr_image`（bash 包装器）并补执行位；新增 `scripts/ocr_image.cmd`、`scripts/preprocess.cmd`（CRLF + 纯 ASCII）。
+- 补 8 张边界样例：新增 `scripts/generate_examples.py`（纯 `struct`+`zlib` 写 PNG，零 Pillow 依赖），生成 `examples/01-solid-white … 08-blank`；`self_test.sh` 发现缺图会自动重生。
+- 语言包不再污染技能目录：模型目录改 `~/.cache/image-ocr/tessdata`（`TESSDATA_DIR` 可覆盖），并复用老的 `assets/tessdata`（若已有 `eng.traineddata`）。根因是 tesseract.js 默认 `cachePath='.'`，`--doctor` 的 `createWorker` 因此会把 4MB 模型写进当前目录，本次显式传 `cachePath=<tmp>` + `cacheMethod:'none'` 修掉。
+- 版本单源：`--version` 改读 `manifest.json`（原来固定打印 0.3.3），`self_test.sh` 的版本断言也改读 manifest。
+- 修存量崩溃：`doctor()` 引用 `opts.uiLang` 却没有参数，`--doctor` 必崩 → 改 `doctor(opts = {})`。
+- 缺 Pillow 时 `preprocess.py` 不再裸 traceback，给中文安装指引 + `sys.exit(3)`。
+- `download_langs.sh` 不再用 curl 双实现，改为转发 `node ocr_image.js --download-langs`。
+- `--workers` 保持串行实现：实测 `--workers 4` 需 29.7s、单进程 18.1s（tesseract.js 每个子进程重载模型），文档与代码注释按实测写明，不再宣称并行提速。
+- `self_test.sh` 断言放宽为宽松匹配（回归 3 项 + 边界 8 项，结构性样例如空白/旋转只要求不崩溃），共 11 步。
+
 ## 0.3.5 (2026-10-21)
 - 三平台对齐（cross-platform + i18n overseas）：README.en.md、`--lang en|zh` 主入口、i18n.py、CFI 三平台 workflow 全绿。
 - 不改变业务算法/中文模板；平台专用调整只改发布副本。

@@ -1,7 +1,9 @@
 ---
 name: image-ocr
+slug: image-ocr
+displayName: "图片文字识别"
 description: 本地离线 OCR，从图片/扫描件/多页 PDF 提取文字、数字、表格、代码和算式，不联网不上传。适用于截图、照片、扫描件、试卷、表单、图纸说明等无法直接复制文字的图片；也用于把表格转 Markdown/CSV、代码截图转文本。支持中文（chi_sim）、英文（eng）及其他下载的语言包。当用户上传图片/PDF并索要文字、数字、表格、代码或算式内容时使用。不用于可直接复制文字的电子文档、以手写体为主的图片（准确率有限）、或需要联网 OCR/云端视觉的场景。
-version: 0.3.5
+version: 0.3.6
 platforms: [macos, windows, linux]
 i18n:
   en: README.en.md
@@ -55,7 +57,7 @@ locales: [zh-CN, en-US]
    | PDF 某页/限页 | `--page N` / `--max-pages N` |
    | 只识图片某区域 | `--crop x,y,w,h`（基于原图坐标） |
    | 结果写文件 | `--out 文件` |
-   | 批量提速 | `--workers 3`（仅文本模式） |
+   | 批量分块 | `--workers 3`（仅文本模式；单进程复用模型执行，实测比多进程快，见 CHANGELOG v0.3.6） |
    | 长任务观察 | `--progress`；中断后续跑 `--resume` |
    | 通用兜底 | 低置信度时自动试 binarize/deskew（--auto-retry 默认开）、必要时旋转（--auto-rotate） |
 4. **执行 OCR**：`ocr_image <文件...> [上面选好的参数]`，可一次批量多文件。
@@ -115,7 +117,7 @@ locales: [zh-CN, en-US]
 - `--crop x,y,w,h`：只识别原图指定区域（先裁剪再其他预处理）。
 - `scripts/setup.sh`：依赖体检/`--repair` 一键补装。
 - HEIC 输入自动转 PNG（macOS sips；Windows/Linux 用 ImageMagick 或 heif-convert，缺失时给中文提示）。
-- 批量与性能：`--workers N` 多文件并行（仅文本模式）、`--progress` 进度、`--resume` 断点续跑。
+- 批量与性能：`--workers N` 分批（仅文本模式；v0.3.6 实测多进程重复加载模型反而慢 60%，故单进程内复用 worker 串行处理）、`--progress` 进度、`--resume` 断点续跑。
 - 缓存管理：`--cache-ttl 秒`、`--no-cache`、`--clear-cache`。
 - 表格增强：`--table-gap N` 调列切分、`--table-conf` 输出附每格置信度；复杂合并单元格必须标"需人工核对"。
 - 结构化字段：`--fields date,amount,id` 输出 JSON，只抽实际读到的内容，读不到留空，不补全。

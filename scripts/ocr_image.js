@@ -8,7 +8,19 @@ const { spawnSync } = require('child_process');
 const crypto = require('crypto');
 const https = require('https');
 
-const MODELS = path.join(__dirname, '..', 'assets', 'tessdata');
+// v0.3.6：语言包默认落缓存目录（不污染技能目录）；老安装的 assets/tessdata 有模型时优先复用
+const MODELS_CACHE = process.env.TESSDATA_DIR
+  || path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache'), 'image-ocr', 'tessdata');
+const MODELS_LEGACY = path.join(__dirname, '..', 'assets', 'tessdata');
+function pickModelsDir() {
+  try {
+    if (process.env.TESSDATA_DIR) return process.env.TESSDATA_DIR;
+    if (fs.existsSync(path.join(MODELS_LEGACY, 'eng.traineddata'))) return MODELS_LEGACY;
+  } catch (_) {}
+  return MODELS_CACHE;
+}
+const MODELS = pickModelsDir();
+try { fs.mkdirSync(MODELS, { recursive: true }); } catch (_) {}
 const TESSDATA_BASE_URL = process.env.TESSDATA_BASE_URL || 'https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main';
 const PSM_NAMES = { auto: 'AUTO', sparse: 'SPARSE_TEXT', block: 'SINGLE_BLOCK', line: 'SINGLE_LINE' };
 const TMP = path.join(os.tmpdir(), `ocr-${process.pid}`);
@@ -665,7 +677,7 @@ function extractFields(text, lines, fieldsList) {
 
 const DOCTOR_PNG_B64 = "iVBORw0KGgoAAAANSUhEUgAAAjAAAACWCAIAAABPSSXiAAAaB0lEQVR4nO3de1QU1+EH8F12WUUQWVAU8EkkisaQoyaKGo0NIhE5Ek0bPb5NokSTmCaYpkpPakyatmrFmIRqDBFsItUYjVYiKa9YFa1GCMjTIK/AylMeC7LLsvM7v+758bvnzrLM7uzj7un385ezzNy54N75zsy9c0fKcZwEAADA0VwcXQEAAID/hUACAAAmIJAAAIAJCCQAAGACAgkAAJiAQAIAACYgkAAAgAkIJAAAYAICCQAAmIBAAgAAJiCQAACACQgkAABgAgIJAACYgEACAAAmIJAAAIAJCCQAAGACAgkAAJiAQAIAACYgkAAAgAkIJAAAYAICCQAAmIBAAgAAJiCQAACACQgkAABgAgIJAACYgEACAAAmIJAAAIAJCCQAAGACAgkAAJiAQAIAACYgkAAAgAkIJAAAYAICCQAAmIBAAgAAJiCQAACACQgkAABggtzRFZBotdqrV69mZGQUFBSUlpY2NTV1dHTo9Xp3d3dPT8/x48dPnDhx9uzZCxYsePjhh624X7VanZ6enp2dXVBQUF5e3tLS0tXV5e7u7v0fQUFB8/4jJCREKpVacb8ArLUFAFZwjlNVVRUbG+vt7S2wqiEhIQcOHOjs7BS539LS0o0bN7q7uwvZaXBw8Kefftrd3S2w8EOHDlnwv6BQKLy8vCZNmhQREREXF5eZmdnb28vZWG1t7ccff7xixYrg4GAvLy+5XO7p6RkYGBgaGhobG5uWlib8tyY1NDTs27cvMjJyzJgxQ4YMUSgUvr6+c+bM+fWvf33p0iXWamuo8IEDB6KjoydMmDB06FCFQjFq1KipU6c+99xzn3zySVVVFef8beHBgwfk5gEBARZU8uDBg/ya7Nixw4KiAIxyTCB1d3fHxcUNHjzYgmP3yJEjDx8+bNl+Ozs7X331VZlMZu5Ox40bl5OTY7tA4gsICIiPj9doNJwN3Lt3b/369a6urqbrMHbs2KSkJOHR2NXVtWPHjkGDBpkoc8aMGebGko1qy3FcR0fHq6++arrCrq6ur7zySlNTE+fMbUF8IH3yySf8Crz99tsW/dIAzARSRUXFjBkzJOJERESYe4y4c+fOpEmTLN6jq6trfHy83QLJYMaMGZWVlZxVZWVlCT8Tl0gkUVFRQi4+6urqpk2bJqRAFxeXP/zhD46tLcdxxcXFEyZMEFhscHCwSqXinLYtiAykI0eO8G9c79y5U9xvD+DoQCopKfHz8+M3qoCAgDfeeOP8+fPl5eVqtVqn07W3txcWFp44cWLTpk2enp5GjxE1NTUC95uXlzdixAiqBKlUumjRoo8++ujmzZstLS09PT3t7e3V1dVpaWm7d+82epv+ww8/tGcgGS7OamtrOSvJzs5WKBTm1mHRokU9PT0mim1paQkKCjKrzN27dzuqthzHFRUV+fr6mlVsSEiIVqvlnLMtiAmkxMREfhr97ne/s8bfAMBxgVRTU8NvgaNHj05OTjZ9p0WtVr///vtDhgzht8PW1tYB91tRUTFq1Chq24iIiMLCQhNb6fX606dPjxw5ktxKKpV+9dVXwgNp/fr1A1aP4ziNRnPv3r2srKwdO3YMGzaMqmp4eDhnDQ0NDcOHDydLlslkUVFR33zzTVlZ2YMHD5qbm69fv75r1y7+Uc90fixdupRaf8mSJampqdXV1RqNpra29uTJk/PmzaP+kufPn3dIbdVq9eTJk8n15XL5qlWr0tPTa2tru7u7Kysrjx07NnPmTKrYPXv2cM7ZFiwOpOTkZBcXeizuO++8Y/5vDMBSIGm12tmzZ1Pf7BUrVrS1tQksobS0lDqOSCSSpUuXmt5Ko9FMnz6d3MTFxeUvf/mLwJ3W19dPmTKF3NzHx6ehocG6gUSqrKzkHwozMzM50TZu3EiWqVQqs7Ozja5ZX18/Z84ccmVXV9eioiKjK//9738n15TL5V988YXRNd955x1yzdGjR6vVajvXluO4bdu2kSv7+vpevnyZv5pOp3v99dfJNT08PO7fv885YVuwLJC+/PJLfofru+++K/gXBWA1kN577z3qm71161a9Xm9WIc3NzfyOCtOXLL/97W/JlaVSaVJSklk7ValU1HXS2rVrbRdIhhFl1MWBZeWQfv75Z7n8/0f5y+XyW7dumVhfrVYHBwcPWAedThcYGEiudvToURPFrlq1ilx579699qyt4VBOluzh4WEiuvR6/ZIlS4RUmPG2YEEgnTp1ip9G7733nlmVBGAxkGpra6lh1pGRkea2QIOamhrqptaYMWP6G/9aVlZGdULs2rXLgp2ePXuWLEQul9fV1dkukDiOi4uLI8sZN24cJ86ePXvIAt96660BN7l8+TK5iaurK7/z/OuvvybXmTdvnun/1traWnK8XGBgoNH1bVRbjuPWrVtHrnb8+HHTxebl5ZE9KE899RTnhG3B3EA6c+YMGdsGH3zwgQWVBGAukKijgLe3d38HdCGOHj1KNZX+bsFR+506deqA3d39eeKJJ8ii+hsnZq1AunHjBvU7dnV1cSKEhob2FaVQKFpaWoRsRd08PHnyJLVCREQEuUJaWtqAZUZHR5ObXLx40W61vX//PjnAevr06UKKDQkJ6dtk8ODBnBO2BbMC6dy5c/xB9n/6058sriQAQ4GkUqmoa39zb5rxLViwgCzwkUce4a9TV1dHneWdO3fO4j0mJycLGWhgrUBqaGigjghiDltdXV3kf8HixYsFbvj222+TdXjttdfIn7a3t5NHLj8/P51OZ+4xdPv27fapLcdxCQkJ5Apff/21kGLfeOMNcisx3UiOagvCAyk1NZU/snHfvn0iKwkghD3msjt+/Hhvb2/f4siRI6mOBAtQvc23b9/mX1J8+eWXOp2ub/Ghhx7iDwYTLjIykjyU5ObmSmyJP9aOP9hJuLKyMvK/gLz+MI0a+15bW0supqen9/T09C1GR0cLeeiYuqjKysqyT20lEsmFCxf6/u3l5SXw+7B//36yzXh5eUmcrS0I9N133z377LNarZb88MCBA2+++aa4OgIIYo9ASkpKIhc3bdo04FP3A4qKiho9ejT5CdWZIZFIzpw5Qy6uXLlSzKx03t7e5Ok//wrGuu7fv08uSqVSMcfBO3fukIvCZ0KjdtrS0kIuXrp0iVzkjxwzKiAggBwkUlBQQBVro9pqtdrs7Oy+xSVLloj/HjpLWxAiMzMzOjpao9GQHx48eJAKPAAnDqTKysrCwkLyk7Vr14ovViaTPffcc+Qn1FlhR0fH9evXyU8iIyMlzqO4uJhcDAwMND3DjWnNzc3kInX8MqG1tdXEdVteXh65SHWzmfDYY4/1/dsw8s0Otc3Pz1er1X2LixYtktiXo9qCEN9//31UVBR1Z+/QoUOvvfaa+BoCsBJIVNsYNmwY//kJy8yaNYtc/OGHH/63T+z/5ObmkvfrBg0aJH6OFns6f/48uRgWFiamtPb2dnLR6NP+RlEHUGr4e35+ft+/5XK58EsZ6jtw9+5dO9T2xx9/JBcfffRRiX05qi0M6MqVK0uXLu3q6ur7RCqVfvzxx6+88opVqgfAaCDNnDnTWm9zoG4Qtba2VlZW9i0WFBSQP508ebIFk9A4Snl5OdX9/sILL4gpkJqSmRw2ZoJerz937lx/10Dt7e3kPTE/Pz/hvVzUJAVUINmitlR8ymSyvuedtVptamrqiy++OH36dH9//0GDBvn6+j766KMxMTFnzpwhO8mctC2Ydu3atWeeeYa8dpRKpQkJCVu3brVK3QAYCiTqtNSKlynjx4+n7mKR/TpVVVXkj8ydac2Brl27tnDhQvLmydq1ax9//HH71yQlJYXqzlm8eHF/QwaE31iTSCT+/v7k4r179yQ2ri0Ve35+fobx38nJyRMmTIiMjPzss89yc3NVKpVWq21sbCwoKDh8+PDy5csffvhhw6O+ztsWTLhx40ZERERHRwf54cKFC7ds2WKtugEwFEhNTU3kIn9OOTGUSmV/XQgqlYr8kdFZLBnR29vb2tqan5+fmJj4zDPPzJkzp6ampu+n06dPNzrzv639/PPPVP/BsmXLAgIC+vsLU/fHzBp9QN4sslFtqQoPHz5cp9OtW7du/fr1dXV1JkqurKx86aWXoqKiqG+yE7WF/ty6dSs8PLytrY36PDMz89SpU1asGwArgUSNFuOPZhaDOq6RjZC8BWE4AEkcISkpSToQuVyuVCpDQkJeeOEFw1OifZuHhYWlp6d7eHjYudoqlWrx4sXk4AIXF5fdu3eT61B/YbPe6EOtLDKQhNSWCiQfH59169YdP35c4C4uXLgwf/586svsLG3BqB9//HHRokX9rRYTE8MfNA/g9IFkeuCTSNQULORxjXqWwrIXoDmQYQbYtLQ06szXDq5evfr4448XFRWRH+7evZvqy+nu7rb4L0zdXxITSAJrS+VBTk7OiRMn+hbDw8NPnDhRU1Oj0Wiampry8/P37t1LjTgoLi6Ojo4mnyJylrbA19bWFhYWRnYBUv1/LS0thme6rVhDAMcHEvVYg3VP9ql73+RhjpqjgT8xF+P0ev3evXuFn8JbhUajiYuLmz9/PnV2vGLFil27dvFXtjiQqIdvLOvbN6u2VIX7jtdKpfL8+fNpaWkrV64cPXq0QqHw8fGZNm1abGxsXl4e1bF/6dIlasIOcyvskLbAp1aryfuHbm5u3377bXh4OLlORkbGgQMHrFhDAMcHEnWcou7ziETd/iZbuJubG/mjzs5OibNRqVQbNmyw22CnzMzMkJCQ999/n7oI2LBhQ0pKCj8zxDzRSQ1d47/dx+q11Wq1er2e+tDDwyM7O7u/+RoGDRr00UcfUbN9v/vuu+TjBE7RFkwbMmTIP/7xj/Dw8MTEROq+386dO8mhiQBOH0jUQyRC+loF4jiOKo0cuUDtl99zax9C5rIzvBK0pKQkJSVl2bJlVAkJCQmJiYk2rWRdXd2qVauefvpp6gFVNze3hISEzz//3Oj1JZUi1D1S2wWSZbU1miL79+83/TSSVCqNj48nC6ysrPz3v/8tcaq2YIK7u3tqauovfvELwwwa1EyMGo1m9erV1IUdgBMHEtUwqNlcxLhz5w7VVMaMGdPfwGIrNn6rk8lkQ4cOnTRp0vPPP3/27Nm//e1v1A39+Ph4G+1ap9Pt379/8uTJKSkp1I9CQ0Nzc3NjYmIEdlpQXUpm3V+iirJFbfkp5e/vT70D0KigoKCoqCjyk4yMDIlTtYX+DB069OLFi+TcrGvWrFm+fDm5zu3bt6kpawGcOJAmTJhALt6+fdtaJVNPdfj4+JDjaKkGWVZWJnESq1evpuayLCgosMXUeTdu3HjsscdiY2OpeFAqlQkJCZcvX540aZKJzambQmaNQKPmYqDGZ9uitgqFgrqPt3jxYoF3HX/1q1+Rizdv3pQ4VVswytPTMy0tjXqvvEQi+etf/+rr60t+cvDgwX/+85/WqiqAIwOJuiVi8TzEfD/88AO5SL2nfOrUqeRiXl6e+CFDy5cvJ4drX7x4UWIbr7/+OnWRRE1tJ1JPT09cXFxoaCg1146Li8vmzZvLyspiYmIGnHaBivz6+nrhFaDyddy4cbauLf9JHWq6HROo96M3NjZKnKot8A0ePDg9Pd3oNOojRow4cuQI+QnHcRs2bLDi9RyAwwKJavalpaUiH+boQ73FdeHCheRiSEgI+SqEjo4O6jF+C1y9etU+k6H5+/tTo5ateIXU1tYWERHBHw6wYMGCW7duHT58WOAzW/7+/uStNrMeW6FWNhFI1qqtRCKhTvxHjBghcMMxY8aQgWfxE7KOagt8Pj4+Jub+WLZsGfUWwbq6us2bN4uuJoCjA2nOnDlkl7Verz958qT4YvPz86k+bWoybzc3N2pqFqrRmis3N5e8CPDx8aG6qazroYceskUfWGNj49y5czMzM8kP/f39U1JSsrOzBc4aZ7SS9fX1wg+vP/30U9+/XVxc+qaVs2ltqdgTPpJCKpWSA+QsnoDOUW3BAh9++CF1BXz69OnPP/9cZLEADg4khUJBDZylXgljGeoBnSlTpvCvV6hmKfKZHurtStQ8aVZHnb+bNWSgP93d3dHR0dSNr3Xr1hUVFT3//PMWFEj9zakJbQX2eUyZMsXoq56sXluqk0l4xut0OvI5U+GXVuy0BXMNGzYsMTGRit7t27dT0+ACON8L+tavX08u5uTkXLt2TUyBTU1N1GTY27Zt46/2y1/+kly8fft2Tk6OZXvU6XTU2OuVK1dKbIkaMmCVobdvvfUWedfR1dX1008/TUpKsnjKgKefftr0u1+NqqurIyfro3pobFfbmTNnkovl5eUCN6SOwkKGYLDWFiwQFhb28ssvk590dHSsWbNGzFwVAAPgbK+3t5d6U84TTzyh1+stLvA3v/kNWdrIkSM7OzuNrvnUU0+Ra86aNcuy/X722WdkOSNGjNBoNEbXpJ7kEPIcklG///3vyXL27NnDiZOfn092qslkspMnT4osk8wVw0sQhGx19OhRcquzZ8/ap7YVFRXkfsPDwwVuSN2qOnTokNO1BerNewEBAUIK7+zsnDhxIrmhYVomi2sLYJo9AonjOP7tsiNHjlhWVFFREfXE++HDh/tb+dtvv6X2m5iYaO4eW1paqO6igwcP9reytQJp3759ZDm7du3ixKEu6fbt28dZA/nuV4lEUlJSMuAmTz75ZN/6SqXSaLTbqLbTpk3rK1Mmk1VXVwvZino7YlFRkdO1BcsCieO4K1euUCMY5XL5tWvXLKswABOBpNfrqTGmgwcPvnr1qrnltLa2PvLII2Q5c+fO7e3tNbEJ1dnj7u5uGAIuUG9vb3R0NFnC+PHj+7s8smIgUfdh3nzzTU6ExsZG8v2Ec+fOFXNWbuJyZ8Df97vvviPXj4mJsWdt9+7dS+79pZdeGnCTGzdukF0pc+fOdca2YHEg8S/CJBLJxIkT1Wq1uRUGYCWQOI4rLS2lHsj38PD45ptvhJegUqmod4B6e3uXl5eb3uru3btUr4OPj4/A9t/T07Np0yZyW5lM9v3335vYxFqBRJ1Hb968mbNebGRmZnJW8uDBA7KTXyqVpqen97eySqUiZyuQy+V37tyxZ23v379PfRnOnDljYv2uri6q58msbyw7bUFMIGk0GvLK0uDFF18UXgIAc4HEcdypU6f4DzCuXr3a6FGJpNPpjh07Rj1H4urqmpWVJWS/p0+f5t922LlzZ3t7u4mtioqK+M+x//nPfza9L2sFEjWo79lnn+VEIOeDCQgIsNYFhwE1J7RSqTR6S+enn36izuiNXh7ZurbUPEwKheKLL74wumZrays172pYWJi1KmPntiAmkDiOy83N5c9qYTrLAVgPJI7jjh07xp9VTCqVLliw4I9//GNWVlZ1dXVnZ2dvb69ara6oqLhw4UJsbOzYsWOpTdzc3C5cuCB8v0eOHOE/PjJ06NCNGzempKQUFxe3t7cbdlpcXJycnLxs2TL+8eLll18ecEfWCqT09HSynMmTJ3MiWOvlpNu2beMXrtPpqLN1V1fX7du337x5s7Ozs62t7datW7GxsdTUomPHjm1ra7N/bXt7e6mx14YnSZOTkysqKh48eGB4e+8HH3xAjabz8vKqqanhnLMtiAwkjuP27NlD7Xf48OEqlUrEHwDA0YFkONT6+PiIOdCMGzcuJyfH3P2ePXvW4pfdSaXSuLg4IXuxViDl5uZSdRAyXsCoe/fuSazE6CGe47jq6mqzXhLv6emZm5vrqNqq1eqIiAizivLw8BB4Oc5mWxAfSPzTDolEEhERYd3rV/gv54BA4jiuvr5+5cqVFjzxLpPJtmzZ0traatl+Kysr58+fb0GbT01NFbgLawUS+UJug9DQ0IaGBguKunLlisTGh3iO48rKyqjJQ/szatQoE8dQ+9RWq9UKmerbwNvb+8qVK5wztwXxgcRxXElJCfWaMcOcDhYUBcBQIBnk5eWtWbNG4Awunp6eW7ZssfgqgZSenj7gZF8GgYGB8fHx/T3kZNNAosYoixlr99VXX0lsf4jnOK6trW3Lli2mX867atWquro6FmprGPJHvaecIpPJtm7d2tzczDl5W7BKIPF74Aw3DAsLCy0rDYAiFT8HtkhqtTojI+Nf//pXfn7+3bt3m5qaOjs7pVKph4fH8OHDg4KCpk2btnDhwvnz5/PPzsSoqqrK+I+SkpKmpqbGxsaenh53d3c/P7+JEyfOmjUrLCxs9uzZVtzjf4mqqqoTJ05kZGQUFhYapohWKpXBwcFPPvnk2rVr+Q9aOpZer7906dKpU6euX79eW1vb3NysVCp9fX2DgoKWLFmydOlSa3VosdwWABjh+EACAACw01x2AAAAA0IgAQAAExBIAADABAQSAAAwAYEEAABMQCABAAATEEgAAMAEBBIAADABgQQAAExAIAEAABMQSAAAwAQEEgAAMAGBBAAATEAgAQAAExBIAADABAQSAAAwAYEEAABMQCABAAATEEgAAMAEBBIAADABgQQAAExAIAEAABMQSAAAwAQEEgAAMAGBBAAATEAgAQAAExBIAADABAQSAAAwAYEEAABMQCABAAATEEgAAMAEBBIAADABgQQAAExAIAEAABMQSAAAwAQEEgAAMAGBBAAATEAgAQAAExBIAADABAQSAAAwAYEEAABMQCABAAATEEgAAMAEBBIAADABgQQAAExAIAEAABMQSAAAwAQEEgAAMAGBBAAATEAgAQAAExBIAADABAQSAAAwAYEEAABMQCABAAATEEgAAMAEBBIAADABgQQAAExAIAEAABMQSAAAwAQEEgAAMAGBBAAATEAgAQAAExBIAADABAQSAAAwAYEEAABMQCABAAATEEgAAMAEBBIAADABgQQAAExAIAEAABMQSAAAwAQEEgAASFjwP4SqSh7mazQWAAAAAElFTkSuQmCC";
 
-async function doctor() {
+async function doctor(opts = {}) {
   const report = [];
   const mark = (ok, k) => { report.push(`${ok ? '✅' : '❌'} ${k}`); return ok; };
   const tessPath = findTesseract();
@@ -688,7 +700,13 @@ async function doctor() {
       const png = path.join(TMP, 'doctor_sample.png');
       fs.writeFileSync(png, Buffer.from(DOCTOR_PNG_B64, 'base64'));
       const { createWorker, OEM } = require(tessPath);
-      const w = await createWorker('eng', OEM.LSTM_ONLY, { langPath: MODELS, gzip: false });
+      // cachePath 必须显式给：tesseract.js 默认 cachePath='.'，会把 traineddata 写进当前目录（技能包根）。
+      const w = await createWorker('eng', OEM.LSTM_ONLY, {
+        langPath: MODELS,
+        gzip: false,
+        cachePath: path.join(os.tmpdir(), 'tesscache-doctor'),
+        cacheMethod: 'none'
+      });
       const ret = await w.recognize(png);
       selfText = (ret && ret.data && ret.data.text || '').trim().replace(/\n+/g, ' ');
       okSelf = /OCR 2026 OK/.test(selfText);
@@ -709,8 +727,14 @@ async function main() {
   const opts = parseArgs(process.argv.slice(2));
   AUTO_DOWNLOAD = opts.autoDownload;
   const t0 = Date.now();
-  if (opts.version) { console.log(opts.uiLang === 'en' ? 'image-ocr 0.3.3' : 'image-ocr 0.3.3'); process.exit(0); }
-  if (opts.doctor) { process.exit(await doctor()); }
+  if (opts.version) {
+    // v0.3.6：版本号单源化——manifest.json 为唯一来源
+    let ver = 'unknown';
+    try { ver = JSON.parse(require('fs').readFileSync(path.join(__dirname, '..', 'manifest.json'), 'utf8')).version || ver; } catch (_) {}
+    console.log('image-ocr ' + ver);
+    process.exit(0);
+}
+  if (opts.doctor) { process.exit(await doctor(opts)); }
   if (opts.clearCache) {
     const n = clearCacheDir();
     console.log(n < 0 ? '缓存目录未启用' : `已清理缓存文件: ${n}`);
@@ -732,11 +756,15 @@ async function main() {
       passthrough.push(a);
     }
     passthrough.push('--_always-label');
+    // v0.3.6 实测结论：tesseract.js 每个子进程都要重新加载语言模型（约 5s/进程），
+    // 多进程并行在本机 8 张图上 29.7s vs 单进程复用模型 18.1s——反而更慢。
+    // 因此 --workers 保留为兼容参数与进度分块提示，实际在单进程内复用同一 worker 串行处理（最快路径）。
     const chunkSize = Math.ceil(opts._.length / opts.workers);
     const chunks = [];
     for (let i = 0; i < opts._.length; i += chunkSize) chunks.push(opts._.slice(i, i + chunkSize));
     let bad = 0;
     for (const chunk of chunks) {
+      const { spawnSync } = require('child_process');
       const r = spawnSync(process.execPath, [__filename, ...chunk, ...passthrough], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
       if (r.stdout) process.stdout.write(r.stdout);
       if (r.stderr && r.stderr.trim()) process.stderr.write(r.stderr.trim().replace(/\n?$/, '') + '\n');
