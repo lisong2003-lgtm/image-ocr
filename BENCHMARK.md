@@ -1,7 +1,7 @@
 # image-ocr 效果基准（真实实测）
 
 环境：macOS（Apple Silicon，Codex 运行时 node v24 / tesseract.js 7 本地 wasm）
-命令统一：`scripts/ocr_image --lang eng --no-cache <样张>`（低对比样张含自动增强）
+命令统一：`scripts/ocr_image.sh --lang eng --no-cache <样张>`（低对比样张含自动增强）
 
 | 样张 | 预期关键字段 | 实测输出 | 关键字段命中 | 低置信行 | 耗时 |
 |---|---|---|---|---|---|

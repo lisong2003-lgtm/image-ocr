@@ -34,7 +34,7 @@ CHECK_FILES: list[str] = [
         "scripts/lint_cross_platform.py",
         "scripts/smoke_utf8_json.py",
         "scripts/preprocess.py",
-        "scripts/ocr_image",
+        "scripts/ocr_image.sh",
         "scripts/ocr_image.cmd",
         "scripts/ocr_image.js",
         "scripts/ocr_image.ps1",

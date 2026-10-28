@@ -8,23 +8,23 @@
 - 需要 Node.js 18+（或 Codex 运行时缓存）与 Python 3.8+（预处理用 Pillow）。
 - macOS/Linux：`bash <skill>/scripts/setup.sh --repair`；Windows：`powershell -File <skill>\scripts\setup.ps1 -Repair`。
 - 多页 PDF 需要 poppler `pdftoppm`（macOS：`brew install poppler`）。
-- 语言模型：默认中文 chi_sim + 英文 eng。缺包时 `scripts/ocr_image --download-langs chi_sim,eng,...`。
+- 语言模型：默认中文 chi_sim + 英文 eng。缺包时 `scripts/ocr_image.sh --download-langs chi_sim,eng,...`。
 
 ## 用法
 ```bash
-scripts/ocr_image 图片.png                          # 默认 chi_sim，自动增强
-scripts/ocr_image --lang eng 截图.png               # 纯英文/数字
-scripts/ocr_image --table 表.png                    # Markdown 表格（草稿级）
-scripts/ocr_image --csv --out 表.csv 表.png         # UTF-8 BOM CSV
-scripts/ocr_image --code 报错.png                   # 代码截图
-scripts/ocr_image --crop x,y,w,h 图.png             # 只识别区域
-scripts/ocr_image --json 图.png                     # 带坐标与每行置信度
-scripts/ocr_image --fields date,amount,id 图.png    # 结构化字段（不补全）
-scripts/ocr_image 多页.pdf --page 3 --dpi 400       # PDF 指定页
-scripts/ocr_image a.png b.png --workers 3           # 并行批量（仅文本）
+scripts/ocr_image.sh 图片.png                          # 默认 chi_sim，自动增强
+scripts/ocr_image.sh --lang eng 截图.png               # 纯英文/数字
+scripts/ocr_image.sh --table 表.png                    # Markdown 表格（草稿级）
+scripts/ocr_image.sh --csv --out 表.csv 表.png         # UTF-8 BOM CSV
+scripts/ocr_image.sh --code 报错.png                   # 代码截图
+scripts/ocr_image.sh --crop x,y,w,h 图.png             # 只识别区域
+scripts/ocr_image.sh --json 图.png                     # 带坐标与每行置信度
+scripts/ocr_image.sh --fields date,amount,id 图.png    # 结构化字段（不补全）
+scripts/ocr_image.sh 多页.pdf --page 3 --dpi 400       # PDF 指定页
+scripts/ocr_image.sh a.png b.png --workers 3           # 并行批量（仅文本）
 ```
 
-常用参数：`--deskew --binarize --auto-rotate --auto-retry --quiet --out 文件 --progress --resume`。完整参数见 `scripts/ocr_image --help`。
+常用参数：`--deskew --binarize --auto-rotate --auto-retry --quiet --out 文件 --progress --resume`。完整参数见 `scripts/ocr_image.sh --help`。
 
 ## 自检
 ```bash

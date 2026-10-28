@@ -15,7 +15,7 @@ except ImportError:  # v0.3.6：缺 Pillow 给中文安装指引，而不是裸 
     sys.stderr.write(
         "❌ 缺少 Pillow（图像预处理依赖）。\n"
         "   安装：python3 -m pip install Pillow\n"
-        "   或跳过预处理直接识别：scripts/ocr_image <图片>（会自动回退原图，精度可能下降）\n"
+        "   或跳过预处理直接识别：scripts/ocr_image.sh <图片>（会自动回退原图，精度可能下降）\n"
     )
     sys.exit(3)
 

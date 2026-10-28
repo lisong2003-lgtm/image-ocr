@@ -36,7 +36,7 @@ locales: [zh-CN, en-US]
 # 工作流
 
 1. **入口与环境**
-   - macOS/Linux：`bash <skill>/scripts/ocr_image <文件...>` 或本机 `ocr_image`（自动定位 node/python）。
+   - macOS/Linux：`bash <skill>/scripts/ocr_image.sh <文件...>` 或本机 `ocr_image`（自动定位 node/python）。
    - Windows：`powershell -File <skill>\scripts\ocr_image.ps1 <文件...>`，或直接 `<skill>\scripts\ocr_image.cmd`。
    - 若报找不到 tesseract.js / 缺模型 / 缺 Python：macOS/Linux 运行 `bash <skill>/scripts/setup.sh --repair`；Windows 运行 `powershell -File <skill>\scripts\setup.ps1 -Repair`；或 `ocr_image --doctor` 查看中文体检报告。
    - 三平台都能识别：tesseract.js 是本地 wasm 引擎，不依赖系统 tesseract；语言模型下载走纯 Node（Windows/Linux/macOS 通用）。
