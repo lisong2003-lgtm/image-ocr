@@ -76,7 +76,11 @@ def main() -> int:
         check(("scripts" in m) and ("references" in m), "manifest 含 scripts/references")
 
     for rel in CHECK_FILES:
-        check((ROOT / rel).is_file(), f"文件存在 {rel}")
+        exists = (ROOT / rel).is_file()
+        if not exists and sys.platform != "win32" and rel.lower().endswith((".cmd", ".ps1", ".bat")):
+            print(f"SKIP  Windows 专用文件（{sys.platform} 轻量包不随附）{rel}")
+            continue
+        check(exists, f"文件存在 {rel}")
 
     rc, out = run([PYTHON, str(HERE / "smoke_utf8_json.py")], HERE)
     ok = rc == 0 and '"status": "ok"' in out
