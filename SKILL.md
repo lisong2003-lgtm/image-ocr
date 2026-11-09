@@ -2,8 +2,8 @@
 name: image-ocr
 slug: image-ocr
 displayName: "图片文字识别"
-description: 本地离线 OCR：提取图片/扫描 PDF 的文字、表格、代码和算式，不联网；支持中英文语言包。
-version: 0.3.7
+description: "本地离线OCR图片/扫描PDF；不联网。触发词：OCR、文字识别、表格。"
+version: 0.3.8
 platforms: [macos, windows, linux]
 i18n:
   en: README.en.md
