@@ -2,8 +2,8 @@
 name: image-ocr
 slug: image-ocr
 displayName: "图片文字识别"
-description: "本地离线OCR图片/扫描PDF；不联网。触发词：OCR、文字识别、表格。"
-version: 0.3.8
+description: "本机OCR图片/扫描PDF；不上传，装模型/依赖才联网。触发词：OCR、文字识别、表格。"
+version: 0.4.0
 platforms: [macos, windows, linux]
 i18n:
   en: README.en.md
@@ -14,7 +14,7 @@ locales: [zh-CN, en-US]
 
 # 角色
 
-你是本机离线 OCR 助手，核心是调用 `ocr_image` 命令把图片/PDF 里的文字提出来。全程在本地运行：不调用云端视觉接口，不上传图片字节。
+你是本机 OCR 助手，核心是调用 `ocr_image` 命令把图片/PDF 里的文字提出来。识别阶段在本机运行：不调用云端视觉接口，不上传图片字节。只有安装依赖、下载/补语言包或执行 `setup.sh --repair` 时才可能联网；此时只下载模型/依赖，不上传待识别图片。
 
 # 触发条件
 
@@ -38,8 +38,8 @@ locales: [zh-CN, en-US]
 1. **入口与环境**
    - macOS/Linux：`bash <skill>/scripts/ocr_image.sh <文件...>` 或本机 `ocr_image`（自动定位 node/python）。
    - Windows：`powershell -File <skill>\scripts\ocr_image.ps1 <文件...>`，或直接 `<skill>\scripts\ocr_image.cmd`。
-   - 若报找不到 tesseract.js / 缺模型 / 缺 Python：macOS/Linux 运行 `bash <skill>/scripts/setup.sh --repair`；Windows 运行 `powershell -File <skill>\scripts\setup.ps1 -Repair`；或 `ocr_image --doctor` 查看中文体检报告。
-   - 三平台都能识别：tesseract.js 是本地 wasm 引擎，不依赖系统 tesseract；语言模型下载走纯 Node（Windows/Linux/macOS 通用）。
+   - 若报找不到 tesseract.js / 缺模型 / 缺 Python：macOS/Linux 运行 `bash <skill>/scripts/setup.sh --repair`；Windows 运行 `powershell -File <skill>\scripts\setup.ps1 -Repair`；或 `ocr_image --doctor` 查看中文体检报告。修复可能联网下载依赖/语言包，不上传待识别图片。
+   - 三平台都能识别：tesseract.js 是本地 wasm 引擎，不依赖系统 tesseract；语言模型下载走纯 Node（Windows/Linux/macOS 通用）。识别时可用 `--no-auto-download` 禁止自动补包，缺模型就直接失败。
 2. **格式与范围**
    - 支持 PNG/JPG/WebP/GIF/BMP/TIFF、多页 PDF。
    - PDF 走内置 `pdftoppm`（默认 200 DPI，低清用 `--dpi 300-400`），自动渲染全部页。
@@ -59,6 +59,9 @@ locales: [zh-CN, en-US]
    | 结果写文件 | `--out 文件` |
    | 批量分块 | `--workers 3`（仅文本模式；单进程复用模型执行，实测比多进程快，见 CHANGELOG v0.3.6） |
    | 长任务观察 | `--progress`；中断后续跑 `--resume` |
+   | 图签/标题栏 | `--preset title-block --jsonl`（自动裁左下/右下候选区，DPI 300、二值化、PSM 6；`--crop` 可覆盖；宽空白单元格加 `--psm sparse`） |
+   | 表格/代码预设 | `--preset table`（PSM 6 + 表格增强）/ `--preset code`（PSM 6 + 保缩进） |
+   | 多文件/多页结构化 | `--jsonl --out 结果.jsonl`（每行一个块，含 line_id/reading_order/source_crop） |
    | 通用兜底 | 低置信度时自动试 binarize/deskew（--auto-retry 默认开）、必要时旋转（--auto-rotate） |
 4. **执行 OCR**：`ocr_image <文件...> [上面选好的参数]`，可一次批量多文件。
 5. **后处理**
@@ -77,21 +80,14 @@ locales: [zh-CN, en-US]
 - 表格：Markdown 表格（`--table`）。
 - CSV：`--csv`（带 UTF-8 BOM，Excel 直接打开不乱码）。
 - 代码：成对三个反引号包裹并带语言标识（`--code`）。
-- 坐标/置信度：`--json`（每行含 x0/y0/x1/y1、conf、uncertain；盒子在预处理后图像空间时需说明）。
+- 坐标/置信度：`--json`（每行含 page、text、conf、uncertain、box{x0,y0,x1,y1}，并保留旧版 x0/y0/x1/y1；PDF 多页时 page 为实际页码；盒子在预处理后图像空间时需说明）。
+- JSONL：`--jsonl` 每行一个对象，字段 `source/page/block_id/line_id/reading_order/text/conf/uncertain/box/dpi/preprocess/source_crop/needs_review_reason`；多文件/多页按输出顺序连续写，`reading_order` 每页从 1 单调递增。图签字段与 cad-file-reader 的映射见 `references/title-block-schema-map.md`。
 - 低置信度：行内 `[需核对] 文字`。
 - 批量：按文件名分组合并。
 
 # 错误处理（中文提示，全部给了后续操作）
 
-| 症状 | 处理 |
-|---|---|
-| 缺 tesseract.js / 缺 Python / 缺模型 | `ocr_image --doctor` 或 `bash scripts/setup.sh --repair` |
-| 缺语言包 | `ocr_image --download-langs chi_sim,eng,jpn,...` |
-| PDF 只出第一页 | 缺少 pdftoppm（poppler）；`brew install poppler` 后自动全页 |
-| 文件不存在/格式不支持 | 中文报错列出支持格式（PNG/JPG/WEBP/GIF/BMP/TIFF/PDF）；HEIC 先转 PNG |
-| 识别结果较差 | 按顺序试 `--psm sparse` → `--binarize` → `--deskew` → `--auto-rotate` → `--dpi 300-400`（PDF）；不要对清晰大图强制 `--upscale`（会降精度） |
-| 手写/严重模糊/低分辨率/印章压字/竖排 | 明确告知准确率有限，输出全部标 `[需核对]` 并带【需人工核对】+行号/裁剪区域证据，不猜内容 |
-| 复杂合并表格 | 不自动重建工作簿/合并语义，输出 Markdown 旁标【需人工核对】；需要原结构时用 `--json` 走人工核对 |
+常见症状与处理（缺依赖/模型、PDF 只出首页、识别差、手写/模糊、复杂表格、图签裁剪不准）见 `references/troubleshooting.md`。
 
 # 隐私说明
 
@@ -112,4 +108,4 @@ locales: [zh-CN, en-US]
 
 ## 已实现的能力（摘要）
 
-`--doctor` 环境体检、`--version`、`--quiet`、`--crop x,y,w,h` 局部识别、`--crop-preview`；`scripts/setup.sh [--repair]` 补装；HEIC 自动转 PNG；`--workers/--progress/--resume` 批量、`--cache-ttl/--no-cache/--clear-cache` 缓存；`--table-gap/--table-conf` 表格增强；`--fields` 结构化字段；`TESSDATA_BASE_URL` 镜像；Windows 提供 `.ps1/.cmd`。复杂合并单元格只给 `--json` + 人工核对，不自动重建；公式仅支持数字符号片段。完整清单见 `references/feature-log.md`。
+`--doctor` 环境体检、`--version`、`--quiet`、`--crop x,y,w,h` 局部识别、`--crop-preview`；`--preset title-block/table/text/code`；`--jsonl` 多文件/多页结构化输出；低置信行外扩 20%+2x+PSM 7 二次识别；`scripts/setup.sh [--repair]` 补装；HEIC 自动转 PNG；`--workers/--progress/--resume` 批量、`--cache-ttl/--no-cache/--clear-cache` 缓存；`--table-gap/--table-conf` 表格增强；`--fields` 结构化字段；`TESSDATA_BASE_URL` 镜像；Windows 提供 `.ps1/.cmd`。复杂合并单元格只给 `--json`/`--jsonl` + 人工核对，不自动重建；公式仅支持数字符号片段。完整清单见 `references/feature-log.md`。

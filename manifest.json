@@ -1,6 +1,6 @@
 {
   "name": "image-ocr",
-  "version": "0.3.8",
+  "version": "0.4.0",
   "entry": "SKILL.md",
   "scripts": [
     "scripts/download_langs.sh",
@@ -10,6 +10,7 @@
     "scripts/ocr_image.sh",
     "scripts/ocr_image.cmd",
     "scripts/ocr_image.js",
+    "scripts/image_info.py",
     "scripts/ocr_image.ps1",
     "scripts/preprocess.cmd",
     "scripts/preprocess.py",
@@ -26,12 +27,15 @@
     "CHANGELOG.md",
     "README.md",
     "agents/openai.yaml",
-    "README.en.md"
+    "README.en.md",
+    "references/title-block-schema-map.md",
+    "references/feature-log.md",
+    "references/troubleshooting.md"
   ],
   "tests": [
     "scripts/self_test.py"
   ],
-  "description": "本地离线 OCR，从图片/扫描件/多页 PDF 提取文字、数字、表格、代码和算式，不联网不上传。适用于截图、照片、扫描件、试卷、表单、图纸说明等无法直接复制文字的图片；也用于把表格转 Markdown/CSV、代码截图转文本。支持中文（chi_sim）、英文（eng）及其他下载的语言包。当用户上传图片/PDF并索要文字、数字、表格、代码或算式内容时使用。不用于可直接复制文字的电子文档、以手写体为主的图片（准确率有限）、或需要联网 OCR/云端视觉的场景。",
+  "description": "本机 OCR，从图片/扫描件/多页 PDF 提取文字、数字、表格、代码和算式；识别不上传图片，仅安装依赖或下载语言包时联网。适用于截图、照片、扫描件、试卷、表单、图纸说明等无法直接复制文字的图片；也用于把表格转 Markdown/CSV、代码截图转文本。支持中文（chi_sim）、英文（eng）及其他下载的语言包。当用户上传图片/PDF并索要文字、数字、表格、代码或算式内容时使用。不用于可直接复制文字的电子文档、以手写体为主的图片（准确率有限）、或需要联网 OCR/云端视觉的场景。",
   "platforms": [
     "macos",
     "windows",

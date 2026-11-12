@@ -1,6 +1,6 @@
 # Local Offline OCR
 
-> image-ocr (image-ocr) v0.3.3 · overseas-friendly lightweight layer. 中文版见 [README.md](README.md).
+> image-ocr (image-ocr) v0.4.0 · overseas-friendly lightweight layer. 中文版见 [README.md](README.md).
 
 ## What it is
 Extracts text, numbers, tables, code and formulas from images, screenshots, scans and multipage PDFs locally. Supports Simplified Chinese (chi_sim), English (eng) and other downloaded language packs. It can output plain text, Markdown tables, CSV, or per-line JSON with coordinates and confidence.
@@ -13,7 +13,14 @@ Use when you receive an image/PDF and need its text, table, or code without send
 ocr_image <image-or-pdf> [more files...]
 ocr_image --table --csv result.csv image.png
 ocr_image --json image.png
+ocr_image --preset table table.png
+ocr_image --preset code error.png
+ocr_image --preset title-block --jsonl --out titleblock.jsonl drawing.png
 ```
+
+`--preset` bundles task-oriented defaults: `title-block` (PSM 6, binarize, 300 DPI, auto title-block candidate crop), `table` (PSM 6 + table enhancement), `text` (defaults) and `code` (PSM 6, keep indentation). Explicit flags always win; `--crop` overrides the automatic title-block crop.
+
+`--jsonl` writes one object per line with `source/page/block_id/line_id/reading_order/text/conf/uncertain/box/dpi/preprocess/source_crop/needs_review_reason`; `reading_order` restarts at 1 for each page. Low-confidence lines are retried once by default with a 20% box margin, 2x upscale and PSM 7; tune with `--low-conf-threshold`, `--max-line-retries`, or disable with `--no-line-retry`. Only retries that actually raise confidence are marked in `preprocess`. Field mapping to `cad-file-reader` is in `references/title-block-schema-map.md`.
 
 ## Install across the three platforms
 - **GitHub**: clone or download the repo, copy the skill folder into `$CODEX_HOME/skills/` (or `~/.claude/skills/` / your agent's skill directory).

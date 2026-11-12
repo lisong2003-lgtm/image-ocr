@@ -1,5 +1,6 @@
 #!/bin/bash
 # image-ocr 回归 + 边界自检（中文）：3 项回归 + 8 项边界样例（宽松断言）
+# v0.4.0：帮助断言加入 --preset/--jsonl/--low-conf-threshold 等新参数。
 # v0.3.6：版本号改读 manifest 动态断言；样例图由 scripts/generate_examples.py 随包提供；
 #        断言放宽为"可识别样例输出非空或带低置信告警；结构性样例运行不崩溃即可"。
 set -uo pipefail
@@ -28,7 +29,7 @@ steps=$((steps+1))
 
 echo "== 回归 3/3 帮助包含关键参数 =="
 h="$("$OCR" 2>&1 || true)"
-for k in --crop --doctor --version --quiet --workers --progress --clear-cache --resume --fields --crop-preview --table-gap --table-conf; do
+for k in --crop --doctor --version --quiet --workers --progress --clear-cache --resume --fields --crop-preview --table-gap --table-conf --preset --jsonl --low-conf-threshold --max-line-retries --no-line-retry; do
   echo "$h" | grep -q -- "$k" || { echo "❌ 缺少 $k"; fail=1; }
 done
 steps=$((steps+1))

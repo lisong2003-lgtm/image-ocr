@@ -88,6 +88,11 @@ options:
   --deskew            skew correction ±5°
   --binarize          Otsu binarization
   --json              per-line JSON with coordinates (conf/uncertain)
+  --jsonl             one JSON object per line (multi-file/page, stable fields)
+  --preset NAME       title-block|table|text|code (explicit flags win)
+  --low-conf-threshold N  retry lines below this confidence (default 60)
+  --max-line-retries N    cap per-page line retries (default 25)
+  --no-line-retry         disable low-confidence line retry
   --table             Markdown table by column clustering
   --csv               CSV table (for Excel)
   --out FILE          write output to file instead of stdout
@@ -109,6 +114,7 @@ options:
   --version           print version and exit
   --quiet             suppress summary output
   --workers N         parallel files (default 1, text mode only)
+  -h, --help          show this help and exit
   --progress          progress on stderr
   --cache-ttl SEC     cache TTL (default 300)
   --no-cache          do not read/write cache
@@ -134,6 +140,11 @@ options:
   --deskew             倾斜校正 ±5°
   --binarize           Otsu 二值化（低对比扫描件）
   --json               输出带坐标的逐行结果（含 conf/uncertain）
+  --jsonl              每行一个 JSON 对象（多文件/多页统一，字段稳定）
+  --preset 名称        title-block|table|text|code（显式参数优先）
+  --low-conf-threshold N  低于该置信度触发行级二次识别（默认 60）
+  --max-line-retries N    每页最多重试行数（默认 25）
+  --no-line-retry         关闭低置信行二次识别
   --table              输出 Markdown 表格（按坐标聚列）
   --csv                输出 CSV（按坐标聚列，可用于 Excel）
   --out 文件           把结果写入文件而不是 stdout
@@ -154,7 +165,8 @@ options:
   --doctor            本机 OCR 环境体检（中文报告）
   --version           输出版本号并退出
   --quiet             抑制 summary 等提示（保留低置信度核对警告）
-  --workers N         多文件并行（默认 1，仅文本模式；--json/--table/--csv/--out 不支持）
+  --workers N         多文件并行（默认 1，仅文本模式；--json/--jsonl/--table/--csv/--out 不支持）
+  -h, --help          显示本帮助并退出
   --progress          批量识别时在 stderr 输出进度（已完成/总数）
   --cache-ttl 秒     缓存有效期（默认 300 秒）
   --no-cache          本次不读写缓存
@@ -167,38 +179,41 @@ options:
 }
 
 function parseArgs(argv) {
-  const opts = { _: [], uiLang: 'zh', lang: 'chi_sim', psm: 'auto', whitelist: null, preprocess: true, deskew: false, binarize: false, upscale: false, json: false, table: false, csv: false, out: null, autoRetry: true, autoRotate: false, page: null, maxPages: null, dpi: 200, autoLang: true, code: false, langList: false, downloadLangs: null, autoDownload: true, langExplicit: false, crop: null, doctor: false, version: false, quiet: false, workers: 1, cacheTtl: null, noCache: false, clearCache: false, resume: false, progress: false, tableGap: null, tableConf: false, fields: null, cropPreview: false, alwaysLabel: false };
+  const opts = { _: [], uiLang: 'zh', lang: 'chi_sim', psm: 'auto', whitelist: null, preprocess: true, deskew: false, binarize: false, upscale: false, json: false, jsonl: false, table: false, csv: false, out: null, autoRetry: true, autoRotate: false, page: null, maxPages: null, dpi: 200, autoLang: true, code: false, langList: false, downloadLangs: null, autoDownload: true, langExplicit: false, crop: null, doctor: false, version: false, quiet: false, workers: 1, cacheTtl: null, noCache: false, clearCache: false, resume: false, progress: false, tableGap: null, tableConf: false, fields: null, cropPreview: false, alwaysLabel: false, preset: null, lowConfThreshold: LOW_CONF, maxLineRetries: 25, noLineRetry: false, printOptions: false, explicit: new Set() };
+  const mark = (key) => opts.explicit.add(key);
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--ui-lang') { opts.uiLang = ['en','en-US'].includes(argv[++i] || 'zh') ? 'en' : 'zh'; }
-    else if (a === '--lang') { opts.lang = argv[++i]; opts.langExplicit = true; }
-    else if (a === '--psm') opts.psm = argv[++i];
+    else if (a === '--lang') { opts.lang = argv[++i]; opts.langExplicit = true; mark('lang'); }
+    else if (a === '--psm') { opts.psm = argv[++i]; mark('psm'); }
     else if (a === '--whitelist') opts.whitelist = argv[++i];
-    else if (a === '--preprocess') opts.preprocess = true;
-    else if (a === '--no-preprocess') opts.preprocess = false;
-    else if (a === '--upscale') opts.upscale = true;
-    else if (a === '--deskew') { opts.deskew = true; opts.preprocess = true; }
-    else if (a === '--binarize') { opts.binarize = true; opts.preprocess = true; }
-    else if (a === '--json') opts.json = true;
-    else if (a === '--table') opts.table = true;
-    else if (a === '--csv') opts.csv = true;
+    else if (a === '--preprocess') { opts.preprocess = true; mark('preprocess'); }
+    else if (a === '--no-preprocess') { opts.preprocess = false; mark('preprocess'); }
+    else if (a === '--upscale') { opts.upscale = true; mark('upscale'); }
+    else if (a === '--deskew') { opts.deskew = true; opts.preprocess = true; mark('deskew'); }
+    else if (a === '--binarize') { opts.binarize = true; opts.preprocess = true; mark('binarize'); }
+    else if (a === '--json') { opts.json = true; mark('json'); }
+    else if (a === '--jsonl') { opts.jsonl = true; mark('jsonl'); }
+    else if (a === '--table') { opts.table = true; mark('table'); }
+    else if (a === '--csv') { opts.csv = true; mark('csv'); }
     else if (a === '--out') opts.out = argv[++i];
     else if (a === '--auto-retry') opts.autoRetry = true;
     else if (a === '--no-auto-retry') opts.autoRetry = false;
     else if (a === '--auto-rotate') opts.autoRotate = true;
     else if (a === '--page') opts.page = parseInt(argv[++i], 10);
     else if (a === '--max-pages') opts.maxPages = parseInt(argv[++i], 10);
-    else if (a === '--dpi') opts.dpi = parseInt(argv[++i], 10);
+    else if (a === '--dpi') { opts.dpi = parseInt(argv[++i], 10); mark('dpi'); }
     else if (a === '--auto-lang') opts.autoLang = true;
     else if (a === '--no-auto-lang') opts.autoLang = false;
-    else if (a === '--code') opts.code = true;
+    else if (a === '--code') { opts.code = true; mark('code'); }
     else if (a === '--lang-list') opts.langList = true;
     else if (a === '--download-langs') opts.downloadLangs = argv[++i];
     else if (a === '--auto-download') opts.autoDownload = true;
     else if (a === '--no-auto-download') opts.autoDownload = false;
-    else if (a === '--crop') opts.crop = argv[++i];
+    else if (a === '--crop') { opts.crop = argv[++i]; mark('crop'); }
     else if (a === '--doctor') opts.doctor = true;
     else if (a === '--version') opts.version = true;
+    else if (a === '--help' || a === '-h') { usage(opts.uiLang); process.exit(0); }
     else if (a === '--quiet') opts.quiet = true;
     else if (a === '--workers') opts.workers = Math.max(1, parseInt(argv[++i], 10) || 1);
     else if (a === '--cache-ttl') opts.cacheTtl = parseInt(argv[++i], 10);
@@ -206,16 +221,66 @@ function parseArgs(argv) {
     else if (a === '--clear-cache') opts.clearCache = true;
     else if (a === '--resume') opts.resume = true;
     else if (a === '--progress') opts.progress = true;
-    else if (a === '--table-gap') opts.tableGap = parseInt(argv[++i], 10);
+    else if (a === '--table-gap') { opts.tableGap = parseInt(argv[++i], 10); mark('tableGap'); }
     else if (a === '--table-conf') opts.tableConf = true;
     else if (a === '--fields') opts.fields = String(argv[++i] || '').split(',').map((x) => x.trim()).filter(Boolean);
     else if (a === '--crop-preview') opts.cropPreview = true;
+    else if (a === '--preset') { opts.preset = String(argv[++i] || '').trim(); mark('preset'); }
+    else if (a === '--low-conf-threshold') { opts.lowConfThreshold = Math.max(0, Math.min(100, parseInt(argv[++i], 10) || 0)); mark('lowConfThreshold'); }
+    else if (a === '--max-line-retries') { opts.maxLineRetries = Math.max(0, parseInt(argv[++i], 10) || 0); mark('maxLineRetries'); }
+    else if (a === '--no-line-retry') { opts.noLineRetry = true; mark('noLineRetry'); }
     else if (a === '--_always-label') opts.alwaysLabel = true;
+    else if (a === '--_print-options') opts.printOptions = true;
     else if (a.startsWith('-')) { usage(opts.uiLang); process.exit(1); }
     else opts._.push(a);
   }
   if (opts.deskew || opts.binarize || opts.upscale) opts.preprocess = true;
   if (opts.table || opts.csv) opts.json = false;
+  if (opts.jsonl) { opts.json = false; opts.table = false; opts.csv = false; }
+  return opts;
+}
+
+const PRESETS = {
+  'title-block': { psm: 'block', binarize: true, dpi: 300, autoTitleCrop: true, preprocess: true },
+  table: { psm: 'block', table: true, tableGap: 24 },
+  text: {},
+  code: { psm: 'block', code: true }
+};
+
+function applyPreset(opts) {
+  if (!opts.preset) return opts;
+  if (!PRESETS[opts.preset]) {
+    console.error(`[preset] 未知预设: ${opts.preset}（可选 title-block/table/text/code）`);
+    process.exit(1);
+  }
+  const preset = PRESETS[opts.preset];
+  for (const [key, value] of Object.entries(preset)) {
+    if (key === 'autoTitleCrop') {
+      if (opts.explicit.has('crop')) {
+        console.error('[preset] title-block 自动裁剪被显式 --crop 覆盖');
+        opts.autoTitleCrop = false;
+      } else {
+        opts.autoTitleCrop = true;
+      }
+      continue;
+    }
+    if (['binarize', 'deskew', 'upscale'].includes(key) && opts.explicit.has('preprocess') && opts.preprocess === false) {
+      continue;
+    }
+    if (key === 'preprocess' && opts.explicit.has('preprocess') && opts.preprocess === false) {
+      console.error(`[preset] ${opts.preset} 想要启用预处理，但显式 --no-preprocess 优先；图签裁剪/二值化不会生效`);
+      continue;
+    }
+    if (opts.explicit.has(key)) {
+      console.error(`[preset] ${opts.preset} 的 ${key}=${value} 被显式参数覆盖（保留当前值 ${JSON.stringify(opts[key])}）`);
+      continue;
+    }
+    opts[key] = value;
+  }
+  if (opts.jsonl && opts.preset === 'table' && opts.table) {
+    console.error('[preset] table 的默认表格输出被 --jsonl 覆盖（JSONL 优先级更高）');
+    opts.table = false;
+  }
   return opts;
 }
 
@@ -260,7 +325,7 @@ function cacheKey(inputs, opts) {
       payload += `${p}\0${st.size}:${st.mtimeMs}\0${sha256(fs.readFileSync(p))}`;
     } catch (_) { payload += `${p}\0missing`; }
   }
-  payload += '\0' + JSON.stringify({ lang: opts.lang, psm: opts.psm, whitelist: opts.whitelist, preprocess: opts.preprocess, deskew: opts.deskew, binarize: opts.binarize, upscale: opts.upscale, json: opts.json, table: opts.table, csv: opts.csv, autoRetry: opts.autoRetry, autoRotate: opts.autoRotate, page: opts.page, maxPages: opts.maxPages, dpi: opts.dpi, autoLang: opts.autoLang, code: opts.code, autoDownload: opts.autoDownload, crop: opts.crop, tableGap: opts.tableGap, tableConf: opts.tableConf, fields: opts.fields });
+  payload += '\0' + JSON.stringify({ lang: opts.lang, psm: opts.psm, whitelist: opts.whitelist, preprocess: opts.preprocess, deskew: opts.deskew, binarize: opts.binarize, upscale: opts.upscale, json: opts.json, jsonl: opts.jsonl, table: opts.table, csv: opts.csv, autoRetry: opts.autoRetry, autoRotate: opts.autoRotate, page: opts.page, maxPages: opts.maxPages, dpi: opts.dpi, autoLang: opts.autoLang, code: opts.code, autoDownload: opts.autoDownload, crop: opts.crop, autoTitleCrop: !!opts.autoTitleCrop, preset: opts.preset, lowConfThreshold: opts.lowConfThreshold, maxLineRetries: opts.maxLineRetries, noLineRetry: opts.noLineRetry, tableGap: opts.tableGap, tableConf: opts.tableConf, fields: opts.fields });
   return sha256(Buffer.from(payload));
 }
 
@@ -319,6 +384,58 @@ function preprocess(src, flags) {
   return out;
 }
 
+function preprocessTags(flags, opts) {
+  const tags = [];
+  if (!opts || !opts.preprocess) return tags;
+  tags.push('grayscale', 'autocontrast');
+  if (flags && flags.crop) tags.push('crop');
+  if (flags && flags.deskew) tags.push('deskew');
+  if (flags && flags.upscale) tags.push('upscale');
+  if (flags && flags.rotate) tags.push(`rotate${flags.rotate}`);
+  if (flags && flags.binarize) tags.push('binarize');
+  return tags;
+}
+
+function imageSize(imgPath) {
+  const r = spawnSync(findPython(), [path.join(__dirname, 'image_info.py'), 'size', imgPath], { encoding: 'utf8', timeout: 20000 });
+  if (r.status === 0) {
+    try {
+      const o = JSON.parse(String(r.stdout || '').trim().split('\n').pop());
+      if (o && o.ok && o.width && o.height) return { width: Number(o.width), height: Number(o.height) };
+    } catch (_) {}
+  }
+  return null;
+}
+
+function detectTitleBlockCrop(imgPath) {
+  const r = spawnSync(findPython(), [path.join(__dirname, 'image_info.py'), 'title-block', imgPath], { encoding: 'utf8', timeout: 30000 });
+  if (r.status === 0) {
+    try {
+      const o = JSON.parse(String(r.stdout || '').trim().split('\n').pop());
+      if (o && o.ok && Array.isArray(o.crop) && o.crop.length === 4) return { crop: o.crop, side: o.side || 'right' };
+    } catch (_) {}
+  }
+  if (r.stderr && !/DeprecationWarning/.test(String(r.stderr))) console.error(String(r.stderr).trim());
+  return null;
+}
+
+function parseCrop(crop) {
+  if (!crop) return null;
+  if (Array.isArray(crop) && crop.length === 4) return crop.map((v) => Math.round(Number(v)));
+  const vals = String(crop).split(',').map((v) => parseInt(v, 10));
+  return vals.length === 4 && vals.every((v) => Number.isFinite(v)) ? vals : null;
+}
+
+function cropSourceLabel(item) {
+  if (!item || !item.sourceCrop) return null;
+  if (item.sourceCrop.auto) return `auto:${item.sourceCrop.side || 'right'}:${item.sourceCrop.crop.join(',')}`;
+  return item.sourceCrop.crop.join(',');
+}
+
+function lineBlockId(line) {
+  return Number.isFinite(line.blockId) ? line.blockId : 1;
+}
+
 function renderPdf(pdf, opts) {
   fs.mkdirSync(TMP, { recursive: true });
   const bin = findBinary('pdftoppm');
@@ -365,7 +482,7 @@ function extractItems(paths, opts) {
     if (p.toLowerCase().endsWith('.pdf')) {
       renderPdf(p, opts).forEach((f, i) => {
         const actualPage = opts.page || (opts.maxPages ? i + 1 : i + 1);
-        items.push({ image: f, label: `${p} [第${actualPage}页]` });
+        items.push({ image: f, label: `${p} [第${actualPage}页]`, page: actualPage });
       });
     } else if (/\.heic$/i.test(p)) {
       const out = path.join(TMP, `heic_${++seq}.png`);
@@ -388,11 +505,11 @@ function extractItems(paths, opts) {
           converted = r3.status === 0 && fs.existsSync(out);
         }
       }
-      if (converted) items.push({ image: out, label: `${p}（HEIC 已转 PNG）` });
+      if (converted) items.push({ image: out, label: `${p}（HEIC 已转 PNG）`, page: 1 });
       else console.error(`[格式不支持] HEIC 转换失败: ${p}（macOS 用 sips；其他系统装 ImageMagick 或 libheif 的 heif-convert，或先手动转 PNG）`);
       continue;
     } else if (IMAGE_EXT.test(p)) {
-      items.push({ image: p, label: p });
+      items.push({ image: p, label: p, page: 1 });
     } else {
       console.error(`不支持的格式: ${p}（仅支持 PNG/JPG/WEBP/GIF/BMP/TIFF 或 PDF）`);
     }
@@ -402,16 +519,128 @@ function extractItems(paths, opts) {
 
 function lineResults(data) {
   const lines = [];
-  for (const block of data.blocks || []) {
-    for (const paragraph of block.paragraphs || []) {
+  const blocks = data.blocks || [];
+  for (let bi = 0; bi < blocks.length; bi++) {
+    for (const paragraph of blocks[bi].paragraphs || []) {
       for (const line of paragraph.lines || []) {
         const b = line.bbox;
-        lines.push({ text: line.text.trim(), conf: line.confidence, uncertain: line.confidence < LOW_CONF, x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 });
+        lines.push({ text: line.text.trim(), conf: line.confidence, uncertain: line.confidence < LOW_CONF, x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1, blockId: bi + 1 });
       }
     }
   }
   lines.sort((a, b) => (Math.abs(a.y0 - b.y0) > 12 ? a.y0 - b.y0 : a.x0 - b.x0));
   return lines;
+}
+
+async function retryLowConfLines(worker, best, opts, PSM) {
+  if (opts.noLineRetry || !worker || !best || !best.target) return 0;
+  const candidates = best.lines
+    .filter((l) => l.text && Number.isFinite(l.conf) && l.conf < opts.lowConfThreshold)
+    .slice(0, Math.max(0, opts.maxLineRetries || 0));
+  if (!candidates.length) return 0;
+  const size = imageSize(best.target) || imageSize(best.item.image);
+  let retried = 0;
+  const originalPsm = PSM[PSM_NAMES[opts.psm]] || PSM.AUTO;
+  try {
+    await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_LINE });
+    for (const line of candidates) {
+      const w = Math.max(1, line.x1 - line.x0);
+      const h = Math.max(1, line.y1 - line.y0);
+      const padX = Math.round(w * 0.2);
+      const padY = Math.round(h * 0.2);
+      let x0 = Math.round(line.x0 - padX);
+      let y0 = Math.round(line.y0 - padY);
+      let x1 = Math.round(line.x1 + padX);
+      let y1 = Math.round(line.y1 + padY);
+      if (size) {
+        x0 = Math.max(0, x0); y0 = Math.max(0, y0);
+        x1 = Math.min(size.width, x1); y1 = Math.min(size.height, y1);
+      }
+      if (x1 <= x0 || y1 <= y0) continue;
+      const retryImg = preprocess(best.target, { crop: [x0, y0, x1 - x0, y1 - y0].join(','), upscale: true });
+      if (retryImg === best.target) continue;
+      let candText = '';
+      let candConf = 0;
+      try {
+        const ret = await worker.recognize(retryImg, { rotateAuto: true }, { blocks: true });
+        const candLines = lineResults(ret.data);
+        candText = (candLines.map((l) => l.text).join(' ') || ret.data.text || '').replace(/\s+/g, ' ').trim();
+        candConf = candLines.length ? Math.max(...candLines.map((l) => l.conf)) : Number(ret.data.confidence || 0);
+      } catch (_) {
+        continue;
+      }
+      if (candText && candConf > line.conf) {
+        line.prevConf = line.conf;
+        line.text = candText;
+        line.conf = candConf;
+        line.uncertain = candConf < opts.lowConfThreshold;
+        // 只有置信度确实提高才记录重试标记与实际命中，避免把无效重试写成“已增强”
+        line.preprocess = [...(line.preprocess || []), 'retry:upscale2', 'psm7'];
+        retried++;
+      }
+    }
+  } finally {
+    try { await worker.setParameters({ tessedit_pageseg_mode: originalPsm }); } catch (_) {}
+  }
+  return retried;
+}
+
+function resultBounds(r) {
+  if (r._bounds !== undefined) return r._bounds;
+  let size = null;
+  if (r && r.target) size = imageSize(r.target);
+  if (!size && r && r.item && r.item.image && r.item.image !== r.target) size = imageSize(r.item.image);
+  r._bounds = size;
+  return r._bounds;
+}
+
+function lineReviewReason(line, r, opts) {
+  // 行坐标位于裁剪/预处理后的图像空间；用实际送入识别的图像尺寸判断四边，
+  // 不能只看 x1/y1，否则右侧/底部被裁断的行会漏报。
+  const bounds = resultBounds(r);
+  const edge = 2;
+  const touchesEdge = !!(r.flags && r.flags.crop && bounds &&
+    (line.x0 <= edge || line.y0 <= edge || line.x1 >= bounds.width - edge || line.y1 >= bounds.height - edge));
+  if (touchesEdge) return 'crop_partial';
+  if (r.flags && r.flags.rotate) return 'rotated';
+  if (line.conf < opts.lowConfThreshold) return 'low_conf';
+  if (opts.table && (line.conf < 80 || r.poor)) return 'table_complex';
+  if (r.poor && line.conf < 85) return 'blur';
+  return null;
+}
+
+function buildJsonlRows(r, opts) {
+  const rows = [];
+  const pageNo = Number(r.item.page || 1);
+  const baseTags = r.preprocess || [];
+  const perBlock = new Map();
+  let readingOrder = 0;
+  for (const line of r.lines) {
+    if (!line.text) continue;
+    readingOrder++;
+    const blockId = lineBlockId(line);
+    const lineId = (perBlock.get(blockId) || 0) + 1;
+    perBlock.set(blockId, lineId);
+    const text = opts.code ? line.text : cleanCjk(line.text);
+    const conf = Math.round(Number(line.conf || 0) * 10) / 10;
+    const tags = [...baseTags, ...(line.preprocess || [])];
+    rows.push({
+      source: r.item.label,
+      page: pageNo,
+      block_id: blockId,
+      line_id: lineId,
+      reading_order: readingOrder,
+      text,
+      conf,
+      uncertain: conf < opts.lowConfThreshold,
+      box: { x0: Math.round(line.x0), y0: Math.round(line.y0), x1: Math.round(line.x1), y1: Math.round(line.y1) },
+      dpi: opts.dpi,
+      preprocess: tags,
+      source_crop: cropSourceLabel(r.item),
+      needs_review_reason: lineReviewReason(line, r, opts)
+    });
+  }
+  return rows;
 }
 
 function collectWords(data) {
@@ -724,7 +953,7 @@ async function doctor(opts = {}) {
 }
 
 async function main() {
-  const opts = parseArgs(process.argv.slice(2));
+  const opts = applyPreset(parseArgs(process.argv.slice(2)));
   AUTO_DOWNLOAD = opts.autoDownload;
   const t0 = Date.now();
   if (opts.version) {
@@ -734,6 +963,13 @@ async function main() {
     console.log('image-ocr ' + ver);
     process.exit(0);
 }
+  if (opts.printOptions) {
+    console.log(JSON.stringify({ preset: opts.preset, psm: opts.psm, binarize: opts.binarize, dpi: opts.dpi,
+      crop: opts.crop, autoTitleCrop: !!opts.autoTitleCrop, jsonl: opts.jsonl, json: opts.json,
+      table: opts.table, code: opts.code, lowConfThreshold: opts.lowConfThreshold,
+      maxLineRetries: opts.maxLineRetries, noLineRetry: opts.noLineRetry }, null, 2));
+    process.exit(0);
+  }
   if (opts.doctor) { process.exit(await doctor(opts)); }
   if (opts.clearCache) {
     const n = clearCacheDir();
@@ -742,8 +978,8 @@ async function main() {
   }
   if (opts.cacheTtl) CACHE_TTL_MS = Math.max(1, opts.cacheTtl) * 1000;
   if (opts.workers > 1 && opts._.length > 1) {
-    if (opts.json || opts.table || opts.csv || opts.out) {
-      console.error('[参数冲突] --workers 仅支持文本输出，--json/--table/--csv/--out 请分批或单文件运行');
+    if (opts.json || opts.jsonl || opts.table || opts.csv || opts.out) {
+      console.error('[参数冲突] --workers 仅支持文本输出，--json/--jsonl/--table/--csv/--out 请分批或单文件运行');
       process.exit(1);
     }
     const files = new Set(opts._);
@@ -828,6 +1064,20 @@ async function main() {
   const items = extractItems(opts._, opts);
   if (!items.length) process.exit(1);
   const multi = items.length > 1;
+  for (const item of items) {
+    if (opts.crop) {
+      const crop = parseCrop(opts.crop);
+      if (crop) item.sourceCrop = { crop, auto: false, side: null };
+    } else if (opts.autoTitleCrop) {
+      const d = detectTitleBlockCrop(item.image);
+      if (d) {
+        item.sourceCrop = { crop: d.crop, auto: true, side: d.side };
+        if (!opts.quiet) console.error(`[preset] title-block 自动裁剪候选: ${d.side} ${d.crop.join(',')}（可用 --crop 覆盖）`);
+      } else if (!opts.quiet) {
+        console.error('[preset] title-block 未能自动定位图签候选区，退化为整图识别；可用 --crop x,y,w,h 指定');
+      }
+    }
+  }
 
   const workers = new Map();
   async function getWorker(lang) {
@@ -861,13 +1111,13 @@ async function main() {
   for (const l of listModels()) { if (l !== opts.lang) await getWorker(l); }
   const mainWorker = await getWorker(opts.lang);
 
-  const baseFlags = { binarize: opts.binarize, deskew: opts.deskew, upscale: opts.upscale, rotate: 0, crop: opts.crop };
-  const variants = [baseFlags];
-  if (opts.autoRotate) variants.push({ ...baseFlags, rotate: 90 }, { ...baseFlags, rotate: 180 }, { ...baseFlags, rotate: 270 });
-
   const results = [];
   try {
     for (const item of items) {
+      const itemCrop = opts.crop || (item.sourceCrop && item.sourceCrop.crop ? item.sourceCrop.crop.join(',') : null);
+      const baseFlags = { binarize: opts.binarize, deskew: opts.deskew, upscale: opts.upscale, rotate: 0, crop: itemCrop };
+      const variants = [baseFlags];
+      if (opts.autoRotate) variants.push({ ...baseFlags, rotate: 90 }, { ...baseFlags, rotate: 180 }, { ...baseFlags, rotate: 270 });
       const attempt = async (worker, flags) => {
         let target = item.image;
         let pre = null;
@@ -877,7 +1127,7 @@ async function main() {
         }
         const ret = await worker.recognize(target, { rotateAuto: true }, { blocks: true });
         const lines = lineResults(ret.data);
-        return { item, data: ret.data, pre, lines, lang: worker && worker._lang || null, flags, score: scoreOf(lines), poor: isPoor(lines) };
+        return { item, data: ret.data, pre, target, lines, lang: worker && worker._lang || null, flags, preprocess: preprocessTags(flags, opts), score: scoreOf(lines), poor: isPoor(lines) };
       };
 
       let best = await attempt(mainWorker, variants[0]);
@@ -922,6 +1172,20 @@ async function main() {
       if (bestWindowKey(best, bestWorker, opts) && !opts.quiet) console.error(`warn: ${item.label} 自动切换为 eng 识别`);
       if (!opts.quiet && best.flags && best.flags.binarize && !baseFlags.binarize) console.error(`warn: ${item.label} 自动启用 binarize（低对比）`);
       if (!opts.quiet && best.flags && best.flags.deskew && !baseFlags.deskew) console.error(`warn: ${item.label} 自动启用 deskew（倾斜）`);
+      if (item.sourceCrop && item.sourceCrop.auto && best.lines.length === 0) {
+        const fallback = await attempt(mainWorker, { ...baseFlags, crop: null });
+        if (fallback.lines.length) {
+          best = fallback;
+          if (!opts.quiet) console.error(`warn: ${item.label} 自动图签裁剪未读到文字，已回退整图识别`);
+        }
+      }
+      if (!opts.table && !opts.csv) {
+        const retried = await retryLowConfLines(bestWorker, best, opts, PSM);
+        if (retried) {
+          best.data.text = best.lines.map((l) => l.text).join('\n');
+          if (!opts.quiet) console.error(`warn: ${item.label} 低置信行二次识别成功 ${retried} 行（外扩20%+2x+PSM7）`);
+        }
+      }
       if (opts.cropPreview && best.pre && fs.existsSync(best.pre)) {
         try {
           const pdir = OCR_CACHE || path.join(os.tmpdir(), 'image-ocr-previews');
@@ -931,6 +1195,8 @@ async function main() {
           if (!opts.quiet) console.error(`preview: ${dst}`);
         } catch (_) {}
       }
+      // 临时预处理图在 finally 中会被清理；JSONL 的边界判定要先缓存尺寸。
+      if (opts.jsonl) resultBounds(best);
       results.push(best);
       if (opts.progress) console.error(`progress: ${results.length}/${items.length}`);
     }
@@ -959,9 +1225,13 @@ async function main() {
     }
     const manual = low.length > 0 || r.poor;
     const manualNote = manual ? `【需人工核对】${r.item.label}：${detail}。请与原始图片人工比对，勿当最终结果。\n` : '';
+    if (opts.jsonl) {
+      for (const row of buildJsonlRows(r, opts)) outStr += JSON.stringify(row) + '\n';
+      continue;
+    }
     if (opts.fields) {
       const rawTextF = opts.code ? r.data.text : cleanCjk(r.data.text);
-      const out = { image: r.item.label, fields: extractFields(rawTextF, lines, opts.fields) };
+      const out = { image: r.item.label, page: Number(r.item.page || 1), fields: extractFields(rawTextF, lines, opts.fields) };
       if (manual) { out.needs_review = true; out.review_note = detail; }
       outStr += JSON.stringify(out) + '\n';
       continue;
@@ -973,11 +1243,20 @@ async function main() {
       continue;
     }
     if (opts.json) {
-      const converted = { image: r.item.label, lines: lines };
+      const pageNo = Number(r.item.page || 1);
+      const linesWithPage = lines.map((l) => ({
+        page: pageNo,
+        text: l.text,
+        conf: l.conf,
+        uncertain: l.uncertain,
+        box: { x0: l.x0, y0: l.y0, x1: l.x1, y1: l.y1 },
+        x0: l.x0, y0: l.y0, x1: l.x1, y1: l.y1
+      }));
+      const converted = { image: r.item.label, page: pageNo, lines: linesWithPage };
       if (manual) { converted.needs_review = true; converted.review_note = detail; }
       outStr += (multi ? JSON.stringify(converted) : '') ;
       if (multi) outStr += '\n';
-      if (!multi) outStr += JSON.stringify(lines, null, 2);
+      if (!multi) outStr += JSON.stringify(linesWithPage, null, 2);
       continue;
     }
     if (multi || opts.alwaysLabel) outStr += `=== ${r.item.label} ===\n`;

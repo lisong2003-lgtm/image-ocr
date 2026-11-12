@@ -2,7 +2,7 @@
 **[English](./README.en.md) | [中文](./README.md)**
 
 
-本地离线 OCR 技能（v0.3.3）。把图片/扫描件/多页 PDF 中的文字、数字、表格、代码、算式提取为文本，全程在本机运行，不上传图片字节。
+本地离线 OCR 技能（v0.4.0）。把图片/扫描件/多页 PDF 中的文字、数字、表格、代码、算式提取为文本，全程在本机运行，不上传图片字节。
 
 ## 依赖与环境
 - 需要 Node.js 18+（或 Codex 运行时缓存）与 Python 3.8+（预处理用 Pillow）。
@@ -15,14 +15,19 @@
 scripts/ocr_image.sh 图片.png                          # 默认 chi_sim，自动增强
 scripts/ocr_image.sh --lang eng 截图.png               # 纯英文/数字
 scripts/ocr_image.sh --table 表.png                    # Markdown 表格（草稿级）
+scripts/ocr_image.sh --preset table 表.png              # 表格预设（PSM 6 + 表格增强）
 scripts/ocr_image.sh --csv --out 表.csv 表.png         # UTF-8 BOM CSV
-scripts/ocr_image.sh --code 报错.png                   # 代码截图
+scripts/ocr_image.sh --code 报错.png                   # 代码截图（保留缩进）
+scripts/ocr_image.sh --preset code 报错.png             # 代码预设（PSM 6 + 保缩进）
+scripts/ocr_image.sh --preset title-block --jsonl --out 图签.jsonl 图纸.png  # 图签候选区 + 结构化输出
 scripts/ocr_image.sh --crop x,y,w,h 图.png             # 只识别区域
 scripts/ocr_image.sh --json 图.png                     # 带坐标与每行置信度
 scripts/ocr_image.sh --fields date,amount,id 图.png    # 结构化字段（不补全）
 scripts/ocr_image.sh 多页.pdf --page 3 --dpi 400       # PDF 指定页
 scripts/ocr_image.sh a.png b.png --workers 3           # 并行批量（仅文本）
 ```
+
+`--jsonl` 每行一个对象，字段为 `source/page/block_id/line_id/reading_order/text/conf/uncertain/box/dpi/preprocess/source_crop/needs_review_reason`；`reading_order` 每页从 1 单调递增。低置信行默认外扩 20%、放大 2 倍、PSM 7 二次识别，可用 `--low-conf-threshold 60 --max-line-retries 25` 调整，或 `--no-line-retry` 关闭。图签字段到 `cad-file-reader` 的映射见 `references/title-block-schema-map.md`。
 
 常用参数：`--deskew --binarize --auto-rotate --auto-retry --quiet --out 文件 --progress --resume`。完整参数见 `scripts/ocr_image.sh --help`。
 
@@ -32,7 +37,7 @@ bash scripts/self_test.sh
 ```
 3 项回归 + 8 项边界样例（手写体、更难手写体、严重模糊、低分辨率、印章压字、竖排/异体字、复杂合并表格 ×2），全部 PASS 才写通过记录。通过后可归档：
 ```bash
-bash scripts/self_test.sh > /tmp/image_ocr_selftest_0.3.3.log
+bash scripts/self_test.sh > /tmp/image_ocr_selftest_0.4.0.log
 ```
 
 ## 边界与降级（不承诺准确）
@@ -46,8 +51,8 @@ bash scripts/self_test.sh > /tmp/image_ocr_selftest_0.3.3.log
 - 示例图片全部为脚本自造，不含任何公司、客户或个人身份信息。
 
 ## 双包说明（发布）
-- **GitHub 完整包**（`image-ocr-full-0.3.3.zip`）：含本机全部文件与 `assets/tessdata/*.traineddata` 二进制模型，功能与本地一致。
-- **SkillHub 轻量包**（`image-ocr-skillhub-0.3.3.zip`）：平台不收二进制/无扩展名脚本，故不含 `.traineddata`；下载后先执行：
+- **GitHub 完整包**（`image-ocr-full-0.4.0.zip`）：含本机全部文件与 `assets/tessdata/*.traineddata` 二进制模型，功能与本地一致。
+- **SkillHub 轻量包**（`image-ocr-skillhub-0.4.0.zip`）：平台不收二进制/无扩展名脚本，故不含 `.traineddata`；下载后先执行：
   ```bash
   bash scripts/download_langs.sh chi_sim,eng
   ```

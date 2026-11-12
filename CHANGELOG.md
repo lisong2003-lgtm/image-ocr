@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0 · 2026-11-11 · 图签与结构化输出
+
+- **`--preset`**：新增 `title-block` / `table` / `text` / `code`。`title-block` 自动比较左下/右下墨迹密度裁图签候选区（已是横向图签截图时用整图），DPI 300、二值化、PSM 6；`table` 为 PSM 6 + 表格增强；`code` 为 PSM 6 + 保缩进。显式参数优先于预设，冲突在 stderr 说明；`--crop` 可覆盖自动裁剪。
+- **`--jsonl`**：多文件/多页每行一个 JSON 对象，字段 `source/page/block_id/line_id/reading_order/text/conf/uncertain/box{x0,y0,x1,y1}/dpi/preprocess[]/source_crop/needs_review_reason`。裁剪后按预处理图的实际四边判断 `crop_partial`，右侧/底部截断不再漏报；旧 `--json` 字段与单文件/多文件输出形态保持兼容。
+- **低置信行二次识别**：默认 `conf < 60` 时对行框外扩 20%、放大 2 倍、PSM 7 重识别，取较高置信结果；`preprocess` 记录 `retry:upscale2`、`psm7`。可用 `--low-conf-threshold`、`--max-line-retries`、`--no-line-retry` 控制。
+- **图签 schema 对齐**：新增 `references/title-block-schema-map.md`，把 JSONL 字段、中文标签、置信度/像素框换算对齐到 `cad-file-reader` 的 `pdf_meta.title_block` / `page_bbox` / `source_bbox_px`；只做候选映射，仍需人工核对。
+- **测试**：`scripts/self_test.py` 增加预设解析、JSONL 行数与字段完整性、`reading_order` 单调、二次识别触发、旧 `--json` 兼容；原自测保留。
+- **验收备注（真实图签实测）**：在本机 R09 图块重绘件上，日期、子项名称、专业、版本、阶段与 CAD 值一致；宽空白单元格用 preset 默认 PSM 6 容易丢字，加 `--psm sparse` 更稳；人名（良/晖/磊）易误识，签名栏只作候选。`--no-preprocess` 时 `--crop` 不生效（按整图识别），需要裁剪时应保留预处理。
+- **边界**：不改默认识别引擎，不上传图片；自动裁剪与图签字段均为候选，不替代设计签章、审批或人工复核。
+- **瘦身**：SKILL.md 8,728 B → 7,781 B，错误处理表外移到 `references/troubleshooting.md`；description 压到 44 字，agent-slim 文本块闸门 51,762/57,344 PASS。
+
 ## 0.3.8 · 2026-11-09 · 常驻注入瘦身
 
 - **description 精简**：技能目录注入的 description 压到 ≤45 字，保留原有触发词与「不做什么」边界；SKILL.md 正文与算法口径未变。
